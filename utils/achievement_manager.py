@@ -43,7 +43,12 @@ class AchievementManager:
 
         for achievement in weight_achievements:
             if workout_log.weight >= achievement.criteria_value:
-                self._award_achievement(session, achievement, workout_log.movement.name)
+                self._award_achievement(
+                    session, 
+                    achievement, 
+                    workout_log.user_id,
+                    workout_log.movement.name
+                )
 
     def _check_consecutive_days(self, session, user_id):
         """Check and award streak-based achievements."""
@@ -80,7 +85,7 @@ class AchievementManager:
         # Check if streak achievements should be awarded
         for achievement in streak_achievements:
             if current_streak >= achievement.criteria_value:
-                self._award_achievement(session, achievement)
+                self._award_achievement(session, achievement, user_id)
 
     def _check_movement_mastery(self, session, workout_log):
         """Check and award difficulty level achievements."""
@@ -89,7 +94,12 @@ class AchievementManager:
                 .filter_by(type=AchievementType.MOVEMENT_MASTERY)\
                 .first()
             if mastery_achievement:
-                self._award_achievement(session, mastery_achievement, workout_log.movement.name)
+                self._award_achievement(
+                    session, 
+                    mastery_achievement, 
+                    workout_log.user_id, 
+                    workout_log.movement.name
+                )
 
     def _check_progression_milestone(self, session, workout_log):
         """Check and award progression-based achievements."""
@@ -98,32 +108,49 @@ class AchievementManager:
                 .filter_by(type=AchievementType.PROGRESSION_MILESTONE)\
                 .first()
             if elite_achievement:
-                self._award_achievement(session, elite_achievement, workout_log.movement.name)
+                self._award_achievement(
+                    session, 
+                    elite_achievement, 
+                    workout_log.user_id, 
+                    workout_log.movement.name
+                )
 
-    def _award_achievement(self, session, achievement, movement_name=None):
+    def _award_achievement(self, session, achievement, user_id, movement_name=None):
         """Award an achievement if it hasn't been earned yet."""
-        existing = session.query(EarnedAchievement)\
-            .filter_by(
-                achievement_id=achievement.id,
-                movement_name=movement_name
-            ).first()
+        try:
+            # Check if achievement already earned for this movement/user combination
+            existing = session.query(EarnedAchievement)\
+                .filter_by(
+                    achievement_id=achievement.id,
+                    user_id=user_id,
+                    movement_name=movement_name
+                ).first()
 
-        if not existing:
-            earned = EarnedAchievement(
-                achievement_id=achievement.id,
-                movement_name=movement_name
-            )
-            session.add(earned)
-            return True
-        return False
+            if not existing:
+                earned = EarnedAchievement(
+                    achievement_id=achievement.id,
+                    user_id=user_id,
+                    movement_name=movement_name,
+                    date_earned=datetime.utcnow()
+                )
+                session.add(earned)
+                session.flush()
+                return True
+            return False
+        except Exception as e:
+            print(f"Error awarding achievement: {str(e)}")
+            raise
 
-    def get_earned_achievements(self):
+    def get_earned_achievements(self, user_id=None):
         """Get all earned achievements with their details."""
         with self._session_scope() as session:
-            earned = session.query(EarnedAchievement)\
-                .join(Achievement)\
-                .order_by(EarnedAchievement.date_earned.desc())\
-                .all()
+            query = session.query(EarnedAchievement)\
+                .join(Achievement)
+
+            if user_id:
+                query = query.filter(EarnedAchievement.user_id == user_id)
+
+            earned = query.order_by(EarnedAchievement.date_earned.desc()).all()
 
             return [{
                 'name': earned.achievement.name,
