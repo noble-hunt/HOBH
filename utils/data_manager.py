@@ -85,23 +85,26 @@ class DataManager:
             successful_sessions = sum(log.completed_successfully for log in recent_logs)
 
             # Progress if all recent sessions were successful
+            current_difficulty = DifficultyLevel(movement_record.current_difficulty)
+
+            # Progress if all recent sessions were successful
             if successful_sessions == movement_record.progression_threshold:
-                current_level = movement_record.current_difficulty
-                if current_level != DifficultyLevel.ELITE:
-                    next_level = DifficultyLevel(current_level.value + 1)
-                    movement_record.current_difficulty = next_level
+                if current_difficulty != DifficultyLevel.ELITE:
+                    next_level = list(DifficultyLevel)[list(DifficultyLevel).index(current_difficulty) + 1]
+                    movement_record.current_difficulty = next_level.value
             # Regress if more than half were unsuccessful
             elif successful_sessions < (movement_record.progression_threshold // 2):
-                current_level = movement_record.current_difficulty
-                if current_level != DifficultyLevel.BEGINNER:
-                    prev_level = DifficultyLevel(current_level.value - 1)
-                    movement_record.current_difficulty = prev_level
+                if current_difficulty != DifficultyLevel.BEGINNER:
+                    prev_level = list(DifficultyLevel)[list(DifficultyLevel).index(current_difficulty) - 1]
+                    movement_record.current_difficulty = prev_level.value
 
     def get_movement_difficulty(self, movement):
         try:
             with self._session_scope() as session:
                 movement_record = session.query(Movement).filter_by(name=movement).first()
-                return movement_record.current_difficulty if movement_record else DifficultyLevel.BEGINNER
+                if movement_record:
+                    return DifficultyLevel(movement_record.current_difficulty)
+                return DifficultyLevel.BEGINNER
         except SQLAlchemyError as e:
             print(f"Error retrieving movement difficulty: {e}")
             return DifficultyLevel.BEGINNER
@@ -143,7 +146,7 @@ class DataManager:
                     'weight': log.weight,
                     'reps': log.reps,
                     'notes': log.notes,
-                    'difficulty': log.difficulty_level.name,
+                    'difficulty': log.difficulty_level,
                     'completed': log.completed_successfully
                 } for log in logs]
 
