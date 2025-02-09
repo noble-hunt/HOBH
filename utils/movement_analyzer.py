@@ -116,13 +116,21 @@ class MovementAnalyzer:
                     st.error("No video file provided")
                     return
 
-                temp_file = Path("temp_video.mp4")
-                temp_file.write_bytes(video_file)
-                cap = cv2.VideoCapture(str(temp_file))
+                try:
+                    # Create a temporary directory if it doesn't exist
+                    temp_dir = Path("temp")
+                    temp_dir.mkdir(exist_ok=True)
 
-                if not cap.isOpened():
-                    st.error("Error: Could not open video file")
-                    temp_file.unlink()  # Clean up temp file
+                    # Create temporary file with unique name
+                    temp_file = temp_dir / f"temp_video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
+                    temp_file.write_bytes(video_file)
+
+                    cap = cv2.VideoCapture(str(temp_file))
+                    if not cap.isOpened():
+                        st.error("Error: Could not open video file")
+                        return
+                except Exception as e:
+                    st.error(f"Error processing video file: {str(e)}")
                     return
 
             try:
@@ -140,7 +148,7 @@ class MovementAnalyzer:
                     video_placeholder.image(
                         cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB),
                         channels="RGB",
-                        use_container_width=True  # Updated from use_column_width
+                        use_container_width=True
                     )
 
                     # Update feedback with error handling
@@ -152,11 +160,16 @@ class MovementAnalyzer:
                         {feedback.get('angles', 'Not available')}
                         """
                     else:
-                        suggestions_list = '\n'.join([f"- {s}" for s in feedback['suggestions']])
-                        feedback_text = f"""
-                        **Current Phase:** {feedback['phase']}
+                        phase = feedback.get('phase', 'Unknown')
+                        posture = feedback.get('posture', 'Analyzing...')
+                        suggestions = feedback.get('suggestions', [])
 
-                        **Posture Assessment:** {feedback['posture']}
+                        suggestions_list = '\n'.join([f"- {s}" for s in suggestions]) if suggestions else "- Analyzing movement..."
+
+                        feedback_text = f"""
+                        **Current Phase:** {phase}
+
+                        **Posture Assessment:** {posture}
 
                         **Suggestions:**
                         {suggestions_list}
@@ -164,7 +177,8 @@ class MovementAnalyzer:
                     feedback_placeholder.markdown(feedback_text)
 
                     # Update form score
-                    form_score_placeholder.progress(feedback['confidence'])
+                    confidence = feedback.get('confidence', 0.0)
+                    form_score_placeholder.progress(confidence)
 
                     # Add delay for video playback
                     if input_source != "camera":
@@ -172,15 +186,22 @@ class MovementAnalyzer:
 
             finally:
                 cap.release()
-                if input_source != "camera" and 'temp_file' in locals():
-                    temp_file.unlink()  # Clean up temp file
 
         except Exception as e:
             st.error(f"Error during analysis: {str(e)}")
+        finally:
+            # Clean up resources
             if 'cap' in locals():
                 cap.release()
             if input_source != "camera" and 'temp_file' in locals():
-                temp_file.unlink()  # Clean up temp file
+                try:
+                    temp_file.unlink()  # Delete temporary file
+                    if temp_dir.exists():
+                        # Remove temp directory if empty
+                        if not any(temp_dir.iterdir()):
+                            temp_dir.rmdir()
+                except Exception as e:
+                    print(f"Error cleaning up temporary files: {str(e)}")
 
     def process_frame(self, frame: np.ndarray, movement_type: str) -> Tuple[np.ndarray, Dict]:
         """
@@ -201,10 +222,10 @@ class MovementAnalyzer:
 
         # Initialize feedback
         feedback = {
+            "phase": "Unknown",
             "posture": None,
             "suggestions": [],
-            "confidence": 0.0,
-            "phase": None
+            "confidence": 0.0
         }
 
         if results.pose_landmarks:
@@ -444,7 +465,7 @@ Focus on comparing current angles with ideal ranges and providing specific corre
         alpha = 0.7
 
         # Add movement phase indicator
-        if feedback["phase"]:
+        if feedback.get("phase"):
             cv2.putText(
                 overlay,
                 f"Phase: {feedback['phase']}",
@@ -456,8 +477,8 @@ Focus on comparing current angles with ideal ranges and providing specific corre
             )
 
         # Add posture feedback with color coding
-        if feedback["posture"]:
-            color = (0, 255, 0) if feedback["confidence"] > 0.7 else (0, 255, 255)
+        if feedback.get("posture"):
+            color = (0, 255, 0) if feedback.get("confidence", 0) > 0.7 else (0, 255, 255)
             cv2.putText(
                 overlay,
                 feedback["posture"],
@@ -469,7 +490,7 @@ Focus on comparing current angles with ideal ranges and providing specific corre
             )
 
         # Add suggestions with visual indicators
-        for i, suggestion in enumerate(feedback["suggestions"]):
+        for i, suggestion in enumerate(feedback.get("suggestions", [])):
             cv2.putText(
                 overlay,
                 f"→ {suggestion}",
@@ -481,7 +502,8 @@ Focus on comparing current angles with ideal ranges and providing specific corre
             )
 
         # Add confidence meter
-        confidence_width = int(200 * feedback["confidence"])
+        confidence = feedback.get("confidence", 0)
+        confidence_width = int(200 * confidence)
         cv2.rectangle(
             overlay,
             (10, frame.shape[0] - 40),
@@ -498,7 +520,7 @@ Focus on comparing current angles with ideal ranges and providing specific corre
         )
         cv2.putText(
             overlay,
-            f"Form Score: {int(feedback['confidence'] * 100)}%",
+            f"Form Score: {int(confidence * 100)}%",
             (10, frame.shape[0] - 50),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.6,
@@ -508,49 +530,3 @@ Focus on comparing current angles with ideal ranges and providing specific corre
 
         # Blend overlay with original frame
         return cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
-
-    def _add_feedback_overlay(self, frame: np.ndarray, feedback: Dict) -> np.ndarray:
-        """Add feedback overlay to frame."""
-        # Create semi-transparent overlay
-        overlay = frame.copy()
-
-        # Add feedback text
-        if feedback["posture"]:
-            cv2.putText(
-                overlay,
-                f"Posture: {feedback['posture']}",
-                (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 255, 0),
-                2
-            )
-
-        # Add suggestions
-        for i, suggestion in enumerate(feedback["suggestions"]):
-            cv2.putText(
-                overlay,
-                suggestion,
-                (10, 70 + (i * 30)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 0),
-                2
-            )
-
-        # Add confidence score
-        cv2.putText(
-            overlay,
-            f"Confidence: {feedback['confidence']:.2f}",
-            (10, frame.shape[0] - 20),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 255, 255),
-            2
-        )
-
-        # Blend overlay with original frame
-        alpha = 0.7
-        frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
-
-        return frame
