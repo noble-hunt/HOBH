@@ -38,29 +38,30 @@ def show_home():
     # Display PRs and Difficulty Levels
     st.subheader("Movement Status")
 
-    col1, col2, col3 = st.columns(3)
+    # Create a more compact layout with 4 columns
+    cols = st.columns(4)
     movements = data_manager.get_movements()
     prs = data_manager.get_prs()
 
     for idx, movement in enumerate(movements):
-        col = [col1, col2, col3][idx % 3]
+        col = cols[idx % 4]
         with col:
             difficulty = data_manager.get_movement_difficulty(movement)
 
-            # Create colored box based on difficulty
+            # Create colored box based on difficulty with more subtle gold colors
             difficulty_colors = {
-                'BEGINNER': 'lightblue',
-                'INTERMEDIATE': 'lightgreen',
-                'ADVANCED': 'orange',
-                'ELITE': 'red'
+                'BEGINNER': '#FFF8DC',  # Cornsilk
+                'INTERMEDIATE': '#FFE4B5',  # Moccasin
+                'ADVANCED': '#DEB887',  # Burlywood
+                'ELITE': '#DAA520'  # Goldenrod
             }
 
             st.markdown(
                 f"""
-                <div style="padding: 1rem; border-radius: 5px; background-color: {difficulty_colors[difficulty.value]};">
-                    <h4>{movement}</h4>
-                    <p>PR: {prs.get(movement, 0)} kg</p>
-                    <p>Level: {difficulty.value}</p>
+                <div class="movement-status-card" style="background-color: {difficulty_colors[difficulty.value]};">
+                    <h5 style="margin: 0;">{movement}</h5>
+                    <p style="margin: 5px 0;">PR: {prs.get(movement, 0)} kg</p>
+                    <p style="margin: 0;">{difficulty.value}</p>
                 </div>
                 """,
                 unsafe_allow_html=True

@@ -14,16 +14,31 @@ h2, h3 {
     font-weight: 600;
 }
 
-/* Metrics styling */
-[data-testid="stMetricValue"] {
-    font-size: 2rem !important;
-    font-weight: 700;
-    color: #FF4B4B;
+/* Movement status card styling */
+.movement-status-card {
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
 }
 
-[data-testid="stMetricLabel"] {
+.movement-status-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+
+.movement-status-card h5 {
     font-size: 1rem;
     font-weight: 600;
+    color: #2C3E50;
+}
+
+.movement-status-card p {
+    color: #4A5568;
+    font-size: 0.85rem;
 }
 
 /* Form styling */
@@ -36,7 +51,7 @@ h2, h3 {
 
 /* Button styling */
 .stButton > button {
-    background-color: #FF4B4B;
+    background-color: #DAA520;
     color: white;
     border: none;
     padding: 0.5rem 1rem;
@@ -46,7 +61,7 @@ h2, h3 {
 }
 
 .stButton > button:hover {
-    background-color: #E64444;
+    background-color: #B8860B;
 }
 
 /* Workout plan styling */
@@ -58,7 +73,7 @@ h2, h3 {
 }
 
 .workout-plan h3 {
-    color: #FF4B4B;
+    color: #DAA520;
     margin-top: 1.5rem;
     margin-bottom: 1rem;
 }
@@ -81,19 +96,6 @@ h2, h3 {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-/* Difficulty level indicators */
-.movement-card {
-    background-color: white;
-    padding: 1rem;
-    border-radius: 10px;
-    margin-bottom: 1rem;
-    transition: transform 0.2s;
-}
-
-.movement-card:hover {
-    transform: translateY(-2px);
-}
-
 /* Status indicators */
 .success-status {
     color: #28a745;
@@ -107,6 +109,11 @@ h2, h3 {
 
 /* Mobile responsiveness */
 @media screen and (max-width: 768px) {
+    .movement-status-card {
+        padding: 0.5rem;
+        font-size: 0.8rem;
+    }
+
     .workout-plan {
         padding: 1rem;
     }
