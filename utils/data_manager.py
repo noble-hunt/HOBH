@@ -47,6 +47,13 @@ class DataManager:
         return self.movements
 
     def log_movement(self, user_id, movement, weight, reps, date, notes="", completed_successfully=1):
+        """Log a movement with proper type handling."""
+        # Ensure movement is a string and handle type conversion
+        try:
+            movement = str(movement).strip()
+        except (TypeError, AttributeError):
+            raise ValueError(f"Invalid movement type: {type(movement)}. Movement must be a string.")
+
         # Case-insensitive movement validation
         valid_movements = {m.lower(): m for m in self.movements}
         movement_lower = movement.lower()
