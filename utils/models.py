@@ -60,9 +60,13 @@ class UserProfile(Base):
 
     id = Column(Integer, primary_key=True)
     username = Column(String, unique=True, nullable=False)
-    password = Column(LargeBinary, nullable=False)  # Add password field
+    password = Column(LargeBinary, nullable=False)
     display_name = Column(String)
     bio = Column(String)
+    # Add avatar customization fields
+    avatar_style = Column(String, default='adventurer')  # Default avatar style
+    avatar_background = Column(String, default='#F0F2F6')  # Default background color
+    avatar_features = Column(String)  # JSON string storing avatar features
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

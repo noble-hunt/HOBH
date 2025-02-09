@@ -6,6 +6,7 @@ from utils.visualization import create_progress_chart, create_workout_summary, c
 from utils.social_manager import SocialManager
 from utils.auth_manager import AuthManager
 from utils.quote_generator import QuoteGenerator
+from utils.avatar_manager import AvatarManager # Added import
 import plotly.express as px
 from pathlib import Path
 from datetime import datetime
@@ -21,6 +22,7 @@ data_manager = DataManager()
 social_manager = SocialManager()
 auth_manager = AuthManager()
 quote_generator = QuoteGenerator()
+avatar_manager = AvatarManager() # Added initialization
 
 # Initialize session state
 if 'user_id' not in st.session_state:
@@ -115,7 +117,7 @@ def main():
     # Sidebar for navigation
     page = st.sidebar.selectbox(
         "Navigation",
-        ["Home", "Log Movement", "Generate Workout", "Progress Tracker", "Social Hub", "Achievements"]
+        ["Home", "Log Movement", "Generate Workout", "Progress Tracker", "Social Hub", "Achievements", "Profile"]
     )
 
     if page == "Home":
@@ -130,6 +132,9 @@ def main():
         show_social_hub()
     elif page == "Achievements":
         show_achievements()
+    elif page == "Profile":
+        show_profile()
+
 
 def show_social_hub():
     st.header("🤝 Social Hub")
@@ -434,6 +439,83 @@ def show_achievements():
             - 🎯 **Movement Expert**: Reach ADVANCED level in any movement
             - 👑 **Elite Status**: Reach ELITE level in any movement
             """)
+
+def show_profile():
+    st.header("🎯 Athlete Profile")
+
+    if not st.session_state.user_id:
+        st.warning("Please log in to customize your profile.")
+        return
+
+    # Create tabs for different profile sections
+    tab1, tab2 = st.tabs(["Profile Info", "Avatar Customization"])
+
+    with tab1:
+        user = auth_manager.get_user(st.session_state.user_id)
+        if user:
+            st.subheader(f"Welcome, {user['display_name'] or user['username']}!")
+
+            # Basic profile information
+            new_display_name = st.text_input("Display Name", value=user['display_name'] or "")
+            if st.button("Update Display Name"):
+                # Add display name update logic here
+                st.success("Display name updated successfully!")
+
+    with tab2:
+        st.subheader("Customize Your Avatar")
+
+        # Get current avatar settings
+        current_settings = avatar_manager.get_avatar_settings(st.session_state.user_id)
+        available_options = avatar_manager.get_available_options()
+
+        # Avatar customization form
+        with st.form("avatar_customization"):
+            selected_style = st.selectbox(
+                "Avatar Style",
+                options=available_options['styles'],
+                index=available_options['styles'].index(current_settings['style']) 
+                if current_settings else 0
+            )
+
+            selected_background = st.color_picker(
+                "Background Color",
+                value=current_settings['background'] if current_settings else "#F0F2F6"
+            )
+
+            # Feature selection
+            st.subheader("Features")
+            features = {}
+            for feature, options in available_options['features'].items():
+                features[feature] = st.selectbox(
+                    feature.replace('_', ' ').title(),
+                    options=options,
+                    index=options.index(current_settings['features'].get(feature, options[0]))
+                    if current_settings and feature in current_settings['features'] else 0
+                )
+
+            if st.form_submit_button("Update Avatar"):
+                success, message = avatar_manager.update_avatar(
+                    st.session_state.user_id,
+                    selected_style,
+                    selected_background,
+                    features
+                )
+                if success:
+                    st.success("Avatar updated successfully!")
+                else:
+                    st.error(message)
+
+        # Display current avatar
+        if current_settings:
+            try:
+                avatar_svg = avatar_manager.generate_avatar_svg(current_settings)
+                if avatar_svg:
+                    st.image(avatar_svg, width=200)
+                else:
+                    st.error("Failed to generate avatar preview")
+            except Exception as e:
+                st.error(f"Error displaying avatar: {str(e)}")
+
 
 if __name__ == "__main__":
     main()
