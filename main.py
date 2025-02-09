@@ -11,6 +11,7 @@ import plotly.express as px
 from pathlib import Path
 from datetime import datetime
 from utils.recovery_calculator import RecoveryCalculator  # Add this import
+from utils.movement_analyzer import MovementAnalyzer # Add this import
 
 st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
 
@@ -309,45 +310,68 @@ def show_home():
 def show_log_movement():
     st.header("Log Your Lift")
 
-    movements = data_manager.get_movements()
+    tab1, tab2 = st.tabs(["Log Movement", "Form Analysis"])
 
-    with st.form("log_movement"):
-        movement = st.selectbox("Select Movement", movements)
-        weight = st.number_input("Weight (kg)", min_value=0.0, step=0.5)
-        reps = st.number_input("Reps", min_value=1, step=1)
-        date = st.date_input("Date")
+    with tab1:
+        movements = data_manager.get_movements()
 
-        # Add success/failure toggle
-        completed_successfully = st.radio(
-            "How was the session?",
-            ["Successful", "Failed"],
-            index=0,
-            help="This affects your difficulty progression"
+        with st.form("log_movement"):
+            movement = st.selectbox("Select Movement", movements)
+            weight = st.number_input("Weight (kg)", min_value=0.0, step=0.5)
+            reps = st.number_input("Reps", min_value=1, step=1)
+            date = st.date_input("Date")
+
+            # Add success/failure toggle
+            completed_successfully = st.radio(
+                "How was the session?",
+                ["Successful", "Failed"],
+                index=0,
+                help="This affects your difficulty progression"
+            )
+
+            notes = st.text_area("Notes (optional)")
+
+            submitted = st.form_submit_button("Log Movement")
+
+            if submitted:
+                try:
+                    success_value = 1 if completed_successfully == "Successful" else 0
+                    data_manager.log_movement(
+                        user_id=st.session_state.user_id,
+                        movement=movement,
+                        weight=weight,
+                        reps=reps,
+                        date=date,
+                        notes=notes,
+                        completed_successfully=success_value
+                    )
+
+                    # Show current difficulty level after logging
+                    current_difficulty = data_manager.get_movement_difficulty(movement)
+                    st.success(f"Movement logged successfully! Current difficulty: {current_difficulty.value}")
+                except Exception as e:
+                    st.error(f"Error logging movement: {str(e)}")
+
+    with tab2:
+        st.subheader("Real-time Form Analysis")
+
+        # Initialize movement analyzer
+        analyzer = MovementAnalyzer()
+
+        # Movement selection for analysis
+        selected_movement = st.selectbox(
+            "Select movement to analyze",
+            data_manager.get_movements(),
+            key="analysis_movement"
         )
 
-        notes = st.text_area("Notes (optional)")
-
-        submitted = st.form_submit_button("Log Movement")
-
-        if submitted:
+        # Start analysis button
+        if st.button("Start Analysis"):
             try:
-                success_value = 1 if completed_successfully == "Successful" else 0
-                # Fix parameter order and add explicit parameter names
-                data_manager.log_movement(
-                    user_id=st.session_state.user_id,
-                    movement=movement,
-                    weight=weight,
-                    reps=reps,
-                    date=date,
-                    notes=notes,
-                    completed_successfully=success_value
-                )
-
-                # Show current difficulty level after logging
-                current_difficulty = data_manager.get_movement_difficulty(movement)
-                st.success(f"Movement logged successfully! Current difficulty: {current_difficulty.value}")
+                analyzer.start_analysis(selected_movement)
             except Exception as e:
-                st.error(f"Error logging movement: {str(e)}")
+                st.error(f"Error starting analysis: {str(e)}")
+
 
 def show_workout_generator():
     st.header("Workout Generator")
