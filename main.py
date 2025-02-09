@@ -4,6 +4,7 @@ from utils.data_manager import DataManager
 from utils.openai_helper import WorkoutGenerator
 from utils.visualization import create_progress_chart, create_workout_summary, create_heatmap
 from utils.social_manager import SocialManager
+from utils.auth_manager import AuthManager
 import plotly.express as px
 
 st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
@@ -15,8 +16,81 @@ with open('assets/style.css') as f:
 # Initialize managers
 data_manager = DataManager()
 social_manager = SocialManager()
+auth_manager = AuthManager()
+
+# Initialize session state
+if 'user_id' not in st.session_state:
+    st.session_state.user_id = None
+if 'username' not in st.session_state:
+    st.session_state.username = None
+
+def login_user():
+    st.header("Login")
+    with st.form("login_form"):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Login")
+
+        if submitted:
+            user_id, error = auth_manager.authenticate_user(username, password)
+            if user_id:
+                st.session_state.user_id = user_id
+                st.session_state.username = username
+                st.success("Successfully logged in!")
+                st.experimental_rerun()
+            else:
+                st.error(error)
+
+def signup_user():
+    st.header("Sign Up")
+    with st.form("signup_form"):
+        username = st.text_input("Username")
+        display_name = st.text_input("Display Name (optional)")
+        password = st.text_input("Password", type="password")
+        password_confirm = st.text_input("Confirm Password", type="password")
+        submitted = st.form_submit_button("Sign Up")
+
+        if submitted:
+            if password != password_confirm:
+                st.error("Passwords do not match!")
+                return
+
+            if len(password) < 6:
+                st.error("Password must be at least 6 characters long!")
+                return
+
+            user_id, error = auth_manager.create_user(username, password, display_name)
+            if user_id:
+                st.session_state.user_id = user_id
+                st.session_state.username = username
+                st.success("Account created successfully!")
+                st.experimental_rerun()
+            else:
+                st.error(error)
+
+def show_login_page():
+    tab1, tab2 = st.tabs(["Login", "Sign Up"])
+
+    with tab1:
+        login_user()
+
+    with tab2:
+        signup_user()
 
 def main():
+    # Show logout button in sidebar if user is logged in
+    if st.session_state.user_id:
+        st.sidebar.text(f"Welcome, {st.session_state.username}!")
+        if st.sidebar.button("Logout"):
+            st.session_state.user_id = None
+            st.session_state.username = None
+            st.experimental_rerun()
+
+    # Require login for all pages except login page
+    if not st.session_state.user_id:
+        show_login_page()
+        return
+
     st.title("🏋️‍♂️ Olympic Weightlifting Tracker")
 
     # Sidebar for navigation

@@ -45,7 +45,7 @@ class DataManager:
     def get_movements(self):
         return self.movements
 
-    def log_movement(self, movement, weight, reps, date, notes="", completed_successfully=1):
+    def log_movement(self, user_id, movement, weight, reps, date, notes="", completed_successfully=1):
         if movement not in self.movements:
             raise ValueError("Invalid movement")
 
@@ -56,6 +56,7 @@ class DataManager:
                     raise ValueError(f"Movement '{movement}' not found in database")
 
                 workout_log = WorkoutLog(
+                    user_id=user_id,  # Add user_id here
                     date=date,
                     movement_id=movement_record.id,
                     weight=float(weight),

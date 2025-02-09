@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, Float, String, Date, ForeignKey, Table, DateTime, text, Boolean
+from sqlalchemy import create_engine, Column, Integer, Float, String, Date, ForeignKey, Table, DateTime, text, Boolean, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.exc import ProgrammingError, OperationalError
@@ -33,11 +33,13 @@ class EarnedAchievement(Base):
 
     id = Column(Integer, primary_key=True)
     achievement_id = Column(Integer, ForeignKey('achievements.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('user_profiles.id'), nullable=False)  # Add user_id
     date_earned = Column(DateTime, default=datetime.utcnow)
     movement_name = Column(String)  # Optional: specific movement this was earned for
 
     # Relationship
     achievement = relationship('Achievement')
+    user = relationship('UserProfile')
 
 # User following relationship table
 following = Table(
@@ -58,6 +60,7 @@ class UserProfile(Base):
 
     id = Column(Integer, primary_key=True)
     username = Column(String, unique=True, nullable=False)
+    password = Column(LargeBinary, nullable=False)  # Add password field
     display_name = Column(String)
     bio = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -72,6 +75,7 @@ class UserProfile(Base):
     )
     workout_logs = relationship('WorkoutLog', back_populates='user')
     shared_workouts = relationship('SharedWorkout', back_populates='user')
+    earned_achievements = relationship('EarnedAchievement', back_populates='user')
 
 class Movement(Base):
     __tablename__ = 'movements'
