@@ -500,7 +500,7 @@ def show_profile():
                 )
                 if success:
                     st.success("Avatar updated successfully!")
-                    st.experimental_rerun()
+                    st.rerun()  # Updated from experimental_rerun to rerun
                 else:
                     st.error(message)
 
