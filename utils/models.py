@@ -87,8 +87,9 @@ Session = sessionmaker(bind=engine)
 
 def init_db():
     try:
-        # Create tables
-        Base.metadata.create_all(engine, checkfirst=True)
+        # Drop existing tables and recreate them
+        Base.metadata.drop_all(engine)
+        Base.metadata.create_all(engine)
     except ProgrammingError as e:
         print(f"Error initializing database: {e}")
         raise
