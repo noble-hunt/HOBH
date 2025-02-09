@@ -1,10 +1,12 @@
-from sqlalchemy import create_engine, Column, Integer, Float, String, Date, ForeignKey, Table, DateTime
+from sqlalchemy import create_engine, Column, Integer, Float, String, Date, ForeignKey, Table, DateTime, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import ProgrammingError, OperationalError
+from sqlalchemy.pool import NullPool
 import enum
 import os
 from datetime import datetime
+import time
 
 Base = declarative_base()
 
@@ -81,15 +83,44 @@ class SharedWorkout(Base):
     user = relationship('UserProfile', back_populates='shared_workouts')
     workout_log = relationship('WorkoutLog')
 
+def get_db_engine(max_retries=3, retry_delay=1):
+    """Create database engine with retry logic"""
+    for attempt in range(max_retries):
+        try:
+            # Create engine without connection pooling and with SSL parameters
+            engine = create_engine(
+                os.environ['DATABASE_URL'],
+                poolclass=NullPool,
+                connect_args={
+                    'sslmode': 'require',
+                    'connect_timeout': 10
+                }
+            )
+            # Test the connection using proper SQLAlchemy query
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return engine
+        except OperationalError as e:
+            if attempt == max_retries - 1:
+                raise
+            time.sleep(retry_delay)
+
 # Create database engine and session
-engine = create_engine(os.environ['DATABASE_URL'])
+engine = get_db_engine()
 Session = sessionmaker(bind=engine)
 
 def init_db():
-    try:
-        # Drop existing tables and recreate them
-        Base.metadata.drop_all(engine)
-        Base.metadata.create_all(engine)
-    except ProgrammingError as e:
-        print(f"Error initializing database: {e}")
-        raise
+    max_retries = 3
+    retry_delay = 1
+
+    for attempt in range(max_retries):
+        try:
+            Base.metadata.drop_all(engine)
+            Base.metadata.create_all(engine)
+            break
+        except (ProgrammingError, OperationalError) as e:
+            if attempt == max_retries - 1:
+                print(f"Failed to initialize database after {max_retries} attempts")
+                raise
+            print(f"Database initialization attempt {attempt + 1} failed, retrying...")
+            time.sleep(retry_delay)
