@@ -10,6 +10,30 @@
     margin: 1rem 0;
 }
 
+/* Quote container styling */
+.quote-container {
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    border-left: 5px solid #DAA520;
+    text-align: center;
+    transition: transform 0.2s ease-in-out;
+}
+
+.quote-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.quote-text {
+    font-size: 1.2rem;
+    font-style: italic;
+    color: #2C3E50;
+    margin: 0;
+    line-height: 1.5;
+}
+
 /* Header styling */
 h1 {
     color: #1E1E1E;

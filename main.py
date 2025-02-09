@@ -5,8 +5,10 @@ from utils.openai_helper import WorkoutGenerator
 from utils.visualization import create_progress_chart, create_workout_summary, create_heatmap
 from utils.social_manager import SocialManager
 from utils.auth_manager import AuthManager
+from utils.quote_generator import QuoteGenerator
 import plotly.express as px
 from pathlib import Path
+from datetime import datetime
 
 st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
 
@@ -18,12 +20,17 @@ with open('assets/style.css') as f:
 data_manager = DataManager()
 social_manager = SocialManager()
 auth_manager = AuthManager()
+quote_generator = QuoteGenerator()
 
 # Initialize session state
 if 'user_id' not in st.session_state:
     st.session_state.user_id = None
 if 'username' not in st.session_state:
     st.session_state.username = None
+if 'daily_quote' not in st.session_state:
+    st.session_state.daily_quote = None
+if 'quote_date' not in st.session_state:
+    st.session_state.quote_date = None
 
 def login_user():
     st.header("Login")
@@ -159,6 +166,37 @@ def show_social_hub():
 
 def show_home():
     st.header("Welcome to Your Weightlifting Journey")
+
+    # Daily Motivation Quote
+    if (not st.session_state.daily_quote or 
+        not st.session_state.quote_date or 
+        st.session_state.quote_date.date() != datetime.now().date()):
+
+        # Get user context for personalization
+        user_context = {}
+        if st.session_state.user_id:
+            recent_logs = data_manager.get_recent_logs(st.session_state.user_id)
+            if recent_logs:
+                user_context = {
+                    'target_movement': recent_logs[0].movement.name if recent_logs else None,
+                    'current_streak': len(recent_logs)
+                }
+
+        st.session_state.daily_quote = quote_generator.generate_workout_quote(user_context)
+        st.session_state.quote_date = datetime.now()
+
+    # Display the quote in a styled container
+    st.markdown(
+        f"""
+        <div style="padding: 1.5rem; background-color: #f8f9fa; border-radius: 10px; 
+                    margin-bottom: 2rem; text-align: center; border-left: 5px solid #DAA520;">
+            <p style="font-size: 1.2rem; font-style: italic; color: #2C3E50; margin: 0;">
+                "{st.session_state.daily_quote}"
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     # Display PRs and Difficulty Levels
     st.subheader("Movement Status")
