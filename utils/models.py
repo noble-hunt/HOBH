@@ -7,18 +7,19 @@ import os
 
 Base = declarative_base()
 
-class DifficultyLevel(enum.Enum):
-    BEGINNER = 1
-    INTERMEDIATE = 2
-    ADVANCED = 3
-    ELITE = 4
+class DifficultyLevel(str, enum.Enum):
+    BEGINNER = 'BEGINNER'
+    INTERMEDIATE = 'INTERMEDIATE'
+    ADVANCED = 'ADVANCED'
+    ELITE = 'ELITE'
 
 class Movement(Base):
     __tablename__ = 'movements'
 
     id = Column(Integer, primary_key=True)
     name = Column(String, unique=True, nullable=False)
-    current_difficulty = Column(Enum(DifficultyLevel), default=DifficultyLevel.BEGINNER)
+    current_difficulty = Column(Enum(DifficultyLevel, name='difficultylevel', create_type=False), 
+                              default=DifficultyLevel.BEGINNER)
     progression_threshold = Column(Integer, default=3)  # Number of successful sessions needed to progress
 
 class WorkoutLog(Base):
@@ -30,7 +31,8 @@ class WorkoutLog(Base):
     weight = Column(Float, nullable=False)
     reps = Column(Integer, nullable=False)
     notes = Column(String)
-    difficulty_level = Column(Enum(DifficultyLevel), nullable=False)
+    difficulty_level = Column(Enum(DifficultyLevel, name='difficultylevel', create_type=False), 
+                            nullable=False)
     completed_successfully = Column(Integer, default=1)  # 1 for success, 0 for failure
 
 # Create database engine and session
@@ -40,7 +42,20 @@ Session = sessionmaker(bind=engine)
 # Create tables
 def init_db():
     try:
-        # Try to create tables only if they don't exist
+        # Create enum type first
+        with engine.connect() as connection:
+            connection.execute("""
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'difficultylevel') THEN
+                        CREATE TYPE difficultylevel AS ENUM ('BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'ELITE');
+                    END IF;
+                END
+                $$;
+            """)
+            connection.commit()
+
+        # Create tables
         Base.metadata.create_all(engine, checkfirst=True)
     except ProgrammingError as e:
         print(f"Error initializing database: {e}")
