@@ -20,16 +20,11 @@
 .quote-container {
     background-color: #f8f9fa;
     border-radius: 10px;
-    padding: 1.5rem;
-    margin: 1rem 0;
+    padding: 1rem;
+    margin: 0.5rem 0;
     border-left: 5px solid #DAA520;
     text-align: center;
     transition: transform 0.2s ease-in-out;
-}
-
-.quote-container:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .quote-text {
@@ -37,25 +32,20 @@
     font-style: italic;
     color: #2C3E50;
     margin: 0;
-    line-height: 1.5;
+    line-height: 1.4;
 }
 
-/* Header styling */
-h1 {
-    color: #1E1E1E;
-    font-weight: 700;
+/* Reduce spacing between elements */
+[data-testid="stVerticalBlock"] > div {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
 }
 
-h2, h3 {
-    color: #2C3E50;
-    font-weight: 600;
-}
-
-/* Movement status card styling */
+/* Movement status card styling with reduced margins */
 .movement-status-card {
     padding: 0.75rem;
     border-radius: 8px;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
     font-size: 0.9rem;
     border: 1px solid rgba(0,0,0,0.1);
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);

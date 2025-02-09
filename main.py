@@ -191,11 +191,11 @@ def show_home():
         st.session_state.daily_quote = quote_generator.generate_workout_quote(user_context)
         st.session_state.quote_date = datetime.now()
 
-    # Display the quote in a styled container
+    # Display the quote in a styled container with reduced margins
     st.markdown(
         f"""
-        <div style="padding: 1.5rem; background-color: #f8f9fa; border-radius: 10px; 
-                    margin-bottom: 2rem; text-align: center; border-left: 5px solid #DAA520;">
+        <div style="padding: 1rem; background-color: #f8f9fa; border-radius: 10px; 
+                    margin: 0.5rem 0; text-align: center; border-left: 5px solid #DAA520;">
             <p style="font-size: 1.2rem; font-style: italic; color: #2C3E50; margin: 0;">
                 "{st.session_state.daily_quote}"
             </p>
