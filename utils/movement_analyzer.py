@@ -1,4 +1,4 @@
-"""Movement analysis module for real-time form feedback."""
+"""Movement analysis module with video stabilization for form feedback."""
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -18,9 +18,16 @@ class MovementAnalyzer:
         self.pose = self.mp_pose.Pose(
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5,
-            model_complexity=2  # Increased model complexity for better accuracy
+            model_complexity=2
         )
         self.mp_draw = mp.solutions.drawing_utils
+
+        # Initialize video stabilization components
+        self.prev_gray = None
+        self.prev_points = None
+        self.transform_matrix = None
+        self.smooth_transform = None
+        self.stabilization_window = 30  # Number of frames for smoothing
 
         # Initialize Anthropic client for analysis
         self.client = anthropic.Anthropic(
@@ -83,9 +90,85 @@ class MovementAnalyzer:
             }
         }
 
-    def start_analysis(self, movement_type: str, input_source: str = "camera", video_file: Union[None, bytes] = None):
-        """Start movement analysis from camera or video file."""
+    def _stabilize_frame(self, frame: np.ndarray) -> np.ndarray:
+        """
+        Stabilize video frame using optical flow and motion smoothing.
+        """
+        try:
+            # Convert frame to grayscale
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+            # Initialize previous frame and points if needed
+            if self.prev_gray is None:
+                self.prev_gray = gray
+                # Detect feature points in the first frame
+                points = cv2.goodFeaturesToTrack(
+                    gray, maxCorners=200, qualityLevel=0.01, 
+                    minDistance=30, blockSize=3
+                )
+                if points is None:
+                    return frame
+                self.prev_points = points
+                return frame
+
+            # Calculate optical flow
+            curr_points, status, err = cv2.calcOpticalFlowPyrLK(
+                self.prev_gray, gray, self.prev_points, None
+            )
+
+            # Filter valid points
+            if curr_points is None or self.prev_points is None:
+                return frame
+
+            idx = np.where(status == 1)[0]
+            if len(idx) < 4:  # Need at least 4 points for perspective transform
+                return frame
+
+            curr_points = curr_points[idx]
+            prev_points = self.prev_points[idx]
+
+            # Estimate transform matrix
+            transform = cv2.estimateAffinePartial2D(prev_points, curr_points)[0]
+            if transform is None:
+                return frame
+
+            # Apply smoothing to transform
+            if self.transform_matrix is None:
+                self.transform_matrix = transform
+            else:
+                # Smooth the transformation using exponential moving average
+                smooth_factor = 0.8
+                self.transform_matrix = (smooth_factor * self.transform_matrix + 
+                                      (1 - smooth_factor) * transform)
+
+            # Apply stabilization transform
+            height, width = frame.shape[:2]
+            stabilized = cv2.warpAffine(
+                frame, self.transform_matrix, (width, height),
+                borderMode=cv2.BORDER_REPLICATE
+            )
+
+            # Update previous frame and points
+            self.prev_gray = gray
+            self.prev_points = curr_points.reshape(-1, 1, 2)
+
+            return stabilized
+
+        except Exception as e:
+            print(f"Stabilization error: {str(e)}")
+            return frame
+
+    def start_analysis(self, movement_type: str, input_source: str = "camera", 
+                      video_file: Union[None, bytes] = None):
+        """Start movement analysis with optional video stabilization."""
         st.title(f"Real-time {movement_type} Analysis")
+
+        # Add stabilization toggle
+        enable_stabilization = st.sidebar.checkbox(
+            "Enable Video Stabilization", 
+            value=True,
+            help="Reduce camera shake for better analysis"
+        )
 
         # Create placeholders
         video_placeholder = st.empty()
@@ -140,6 +223,10 @@ class MovementAnalyzer:
                         if input_source != "camera":
                             st.info("Video analysis complete")
                         break
+
+                    # Apply video stabilization if enabled
+                    if enable_stabilization:
+                        frame = self._stabilize_frame(frame)
 
                     # Process frame
                     processed_frame, feedback = self.process_frame(frame, movement_type)
@@ -202,6 +289,12 @@ class MovementAnalyzer:
                             temp_dir.rmdir()
                 except Exception as e:
                     print(f"Error cleaning up temporary files: {str(e)}")
+
+            # Reset stabilization variables
+            self.prev_gray = None
+            self.prev_points = None
+            self.transform_matrix = None
+            self.smooth_transform = None
 
     def process_frame(self, frame: np.ndarray, movement_type: str) -> Tuple[np.ndarray, Dict]:
         """
