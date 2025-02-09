@@ -12,7 +12,8 @@ class DataManager:
         self.movements = [
             "Strict Press", "Push Press", "Clean", "Jerk",
             "Clean and Jerk", "Snatch", "Overhead Squat",
-            "Back Squat", "Front Squat"
+            "Back Squat", "Front Squat", "Deadlift", 
+            "Bench Press", "Sumo Deadlift", "RDL"  # Added new movements
         ]
         self.achievement_manager = AchievementManager()
         self._initialize_database()
