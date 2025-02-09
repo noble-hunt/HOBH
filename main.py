@@ -16,122 +16,64 @@ with open('assets/style.css') as f:
 data_manager = DataManager()
 social_manager = SocialManager()
 
-# Session state for user management
-if 'user_id' not in st.session_state:
-    st.session_state.user_id = None
-
 def main():
     st.title("🏋️‍♂️ Olympic Weightlifting Tracker")
 
-    # User authentication placeholder
-    if st.session_state.user_id is None:
-        show_login()
-    else:
-        # Sidebar for navigation
-        page = st.sidebar.selectbox(
-            "Navigation",
-            ["Home", "Log Movement", "Generate Workout", "Progress Tracker", "Social Hub"]
-        )
+    # Sidebar for navigation
+    page = st.sidebar.selectbox(
+        "Navigation",
+        ["Home", "Log Movement", "Generate Workout", "Progress Tracker", "Social Hub"]
+    )
 
-        if page == "Home":
-            show_home()
-        elif page == "Log Movement":
-            show_log_movement()
-        elif page == "Generate Workout":
-            show_workout_generator()
-        elif page == "Progress Tracker":
-            show_progress_tracker()
-        elif page == "Social Hub":
-            show_social_hub()
-
-def show_login():
-    st.header("Welcome! Please Log In or Sign Up")
-
-    with st.form("login_form"):
-        username = st.text_input("Username")
-        action = st.form_submit_button("Login/Signup")
-
-        if action and username:
-            try:
-                # Simple login/signup logic (for demo purposes)
-                user_id = social_manager.create_profile(username)
-                st.session_state.user_id = user_id
-                st.success(f"Welcome, {username}!")
-                st.experimental_rerun()
-            except Exception as e:
-                st.error(f"Error: {str(e)}")
+    if page == "Home":
+        show_home()
+    elif page == "Log Movement":
+        show_log_movement()
+    elif page == "Generate Workout":
+        show_workout_generator()
+    elif page == "Progress Tracker":
+        show_progress_tracker()
+    elif page == "Social Hub":
+        show_social_hub()
 
 def show_social_hub():
     st.header("🤝 Social Hub")
 
-    # Get user profile
-    try:
-        profile = social_manager.get_user_profile(st.session_state.user_id)
+    # Tabs for different social features
+    tab1, tab2 = st.tabs(["Recent Activity", "Share Workout"])
 
-        # Profile section
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Following", profile["following_count"])
-        with col2:
-            st.metric("Followers", profile["followers_count"])
-        with col3:
-            st.metric("Shared Workouts", profile["shared_workouts_count"])
+    with tab1:
+        st.subheader("Recent Activity")
+        st.info("See what others are achieving in their weightlifting journey!")
 
-        st.markdown("---")
+        try:
+            # Show recent activities without user filtering
+            workouts = data_manager.get_recent_logs(limit=10)
 
-        # Tabs for different social features
-        tab1, tab2, tab3 = st.tabs(["Feed", "Share Workout", "Find Athletes"])
-
-        with tab1:
-            st.subheader("Recent Activity")
-            feed = social_manager.get_user_feed(st.session_state.user_id)
-
-            for shared in feed:
+            for workout in workouts:
                 with st.container():
-                    st.markdown(f"**{shared.user.username}** shared a workout:")
-                    st.markdown(f"Movement: {shared.workout_log.movement.name}")
-                    st.markdown(f"Weight: {shared.workout_log.weight}kg × {shared.workout_log.reps} reps")
-                    if shared.caption:
-                        st.markdown(f"_{shared.caption}_")
-                    st.button(f"❤️ {shared.likes}", key=f"like_{shared.id}")
+                    st.markdown(f"**Movement:** {workout.movement.name}")
+                    st.markdown(f"Weight: {workout.weight}kg × {workout.reps} reps")
+                    if workout.notes:
+                        st.markdown(f"_{workout.notes}_")
                     st.markdown("---")
 
-        with tab2:
-            st.subheader("Share Your Workout")
-            recent_logs = data_manager.get_recent_logs(st.session_state.user_id, limit=5)
+        except Exception as e:
+            st.error(f"Error loading recent activities: {str(e)}")
 
-            if recent_logs:
-                selected_log = st.selectbox(
-                    "Select workout to share",
-                    recent_logs,
-                    format_func=lambda x: f"{x.movement.name} - {x.weight}kg × {x.reps} reps"
-                )
+    with tab2:
+        st.subheader("Share Your Achievement")
+        movement = st.selectbox("Select Movement", data_manager.get_movements())
+        weight = st.number_input("Weight (kg)", min_value=0.0, step=0.5)
+        reps = st.number_input("Reps", min_value=1, step=1)
+        notes = st.text_area("Add a note")
 
-                caption = st.text_area("Add a caption")
-
-                if st.button("Share"):
-                    try:
-                        social_manager.share_workout(
-                            st.session_state.user_id,
-                            selected_log.id,
-                            caption
-                        )
-                        st.success("Workout shared successfully!")
-                    except Exception as e:
-                        st.error(f"Error sharing workout: {str(e)}")
-            else:
-                st.info("Log some workouts first to share them!")
-
-        with tab3:
-            st.subheader("Find Athletes to Follow")
-            search_term = st.text_input("Search by username")
-
-            if search_term:
-                # Implement user search functionality
-                st.info("User search feature coming soon!")
-
-    except Exception as e:
-        st.error(f"Error loading social features: {str(e)}")
+        if st.button("Share"):
+            try:
+                data_manager.log_movement(movement, weight, reps, pd.Timestamp.now().date(), notes)
+                st.success("Workout shared successfully!")
+            except Exception as e:
+                st.error(f"Error sharing workout: {str(e)}")
 
 def show_home():
     st.header("Welcome to Your Weightlifting Journey")
