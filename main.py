@@ -6,6 +6,7 @@ from utils.visualization import create_progress_chart, create_workout_summary, c
 from utils.social_manager import SocialManager
 from utils.auth_manager import AuthManager
 import plotly.express as px
+from pathlib import Path
 
 st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
 
@@ -91,7 +92,12 @@ def main():
         show_login_page()
         return
 
-    st.title("🏋️‍♂️ Olympic Weightlifting Tracker")
+    # Display logo instead of text title
+    logo_path = "attached_assets/BlackBack.png"
+    if Path(logo_path).exists():
+        st.image(logo_path, use_column_width=False, width=300)
+    else:
+        st.title("🏋️‍♂️ Olympic Weightlifting Tracker")
 
     # Sidebar for navigation
     page = st.sidebar.selectbox(

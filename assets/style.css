@@ -3,6 +3,13 @@
     font-family: 'Inter', sans-serif;
 }
 
+/* Logo styling */
+.app-logo {
+    max-width: 300px;
+    height: auto;
+    margin: 1rem 0;
+}
+
 /* Header styling */
 h1 {
     color: #1E1E1E;
@@ -120,5 +127,9 @@ h2, h3 {
 
     [data-testid="stMetricValue"] {
         font-size: 1.5rem !important;
+    }
+
+    .app-logo {
+        max-width: 200px;
     }
 }
