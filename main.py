@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from utils.data_manager import DataManager
 from utils.openai_helper import WorkoutGenerator
-from utils.visualization import create_progress_chart
+from utils.visualization import create_progress_chart, create_workout_summary, create_heatmap
 from utils.social_manager import SocialManager
 import plotly.express as px
 
@@ -169,31 +169,79 @@ def show_workout_generator():
 def show_progress_tracker():
     st.header("Progress Tracker")
 
-    movement = st.selectbox(
-        "Select Movement",
-        data_manager.get_movements()
-    )
+    # Movement selector and date range
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        movement = st.selectbox(
+            "Select Movement",
+            data_manager.get_movements()
+        )
+
+    with col2:
+        date_range = st.radio(
+            "Time Range",
+            ["1 Month", "3 Months", "6 Months", "1 Year", "All Time"],
+            horizontal=True
+        )
 
     # Get movement history
     history = data_manager.get_movement_history(movement)
 
     if not history.empty:
+        # Filter data based on date range
+        if date_range != "All Time":
+            months = {
+                "1 Month": 1,
+                "3 Months": 3,
+                "6 Months": 6,
+                "1 Year": 12
+            }
+            cutoff_date = pd.Timestamp.now() - pd.DateOffset(months=months[date_range])
+            history = history[history['date'] >= cutoff_date]
+
         # Display current difficulty level
         current_difficulty = data_manager.get_movement_difficulty(movement)
         st.info(f"Current Difficulty Level: {current_difficulty.value}")
 
-        # Create progress chart
-        fig = create_progress_chart(history, movement)
-        st.plotly_chart(fig)
+        # Create tabs for different visualizations
+        tab1, tab2, tab3 = st.tabs(["Progress Charts", "Training Summary", "Workout Patterns"])
 
-        # Show recent sessions table
-        st.subheader("Recent Sessions")
-        history['Status'] = history['completed'].map({1: '✅ Success', 0: '❌ Failed'})
-        st.dataframe(
-            history[['date', 'weight', 'reps', 'difficulty', 'Status', 'notes']]
-            .sort_values('date', ascending=False)
-            .head(5)
-        )
+        with tab1:
+            # Create and display progress chart
+            fig = create_progress_chart(history, movement)
+            st.plotly_chart(fig, use_container_width=True)
+
+        with tab2:
+            # Display workout summary statistics
+            summary = create_workout_summary(history)
+
+            col1, col2, col3, col4 = st.columns(4)
+
+            with col1:
+                st.metric("Total Workouts", summary['total_workouts'])
+            with col2:
+                st.metric("Success Rate", f"{summary['success_rate']:.1f}%")
+            with col3:
+                st.metric("Max Weight", f"{summary['max_weight']}kg")
+            with col4:
+                st.metric("Total Volume", f"{summary['total_volume']:.0f}")
+
+            # Show recent sessions table
+            st.subheader("Recent Sessions")
+            history['Status'] = history['completed'].map({1: '✅ Success', 0: '❌ Failed'})
+            st.dataframe(
+                history[['date', 'weight', 'reps', 'difficulty', 'Status', 'notes']]
+                .sort_values('date', ascending=False)
+                .head(5)
+            )
+
+        with tab3:
+            # Display workout pattern heatmap
+            st.subheader("Workout Patterns")
+            heatmap = create_heatmap(history)
+            st.plotly_chart(heatmap, use_container_width=True)
+
     else:
         st.info("No data available for this movement yet.")
 
