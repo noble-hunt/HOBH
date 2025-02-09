@@ -1,8 +1,14 @@
+"""Data management module for the application."""
 import pandas as pd
 from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
-from utils.models import (
+from sqlalchemy.orm.exc import NoResultFound
+import traceback
+import sys
+
+# Import models through the package init to ensure proper initialization
+from utils import (
     Session,
     Movement,
     WorkoutLog,
@@ -15,10 +21,14 @@ from utils.prediction import PRPredictor
 
 # Debug logging
 print("DataManager Module Loading")
+print(f"Python version: {sys.version}")
+print(f"Module search path: {sys.path}")
 print(f"WorkoutLog imported as: {WorkoutLog}")
+print(f"WorkoutLog module: {WorkoutLog.__module__}")
 
 class DataManager:
     def __init__(self):
+        """Initialize the DataManager with movement list and required components."""
         self.movements = [
             "Strict Press", "Push Press", "Clean", "Jerk",
             "Clean and Jerk", "Snatch", "Overhead Squat",
@@ -32,6 +42,7 @@ class DataManager:
             print("DataManager initialization complete")
         except Exception as e:
             print(f"Error initializing DataManager: {str(e)}")
+            print(f"Traceback: {traceback.format_exc()}")
             raise
 
     @contextmanager
@@ -48,6 +59,7 @@ class DataManager:
             session.close()
 
     def _initialize_database(self):
+        """Initialize database with required tables and initial data."""
         try:
             init_db()
             with self._session_scope() as session:
@@ -61,13 +73,16 @@ class DataManager:
                         session.add(movement)
         except Exception as e:
             print(f"Error in _initialize_database: {str(e)}")
+            print(f"Traceback: {traceback.format_exc()}")
             raise
 
     def log_movement(self, user_id, movement, weight, reps, date, notes="", completed_successfully=1):
         """Log a movement with proper type handling and error reporting."""
         try:
+            print(f"Debug - Starting log_movement")
             print(f"Debug - WorkoutLog class available: {WorkoutLog}")
             print(f"Debug - Movement input: {movement}, type: {type(movement)}")
+            print(f"Debug - User ID: {user_id}")
 
             # Ensure movement is a string
             movement = str(movement).strip()
@@ -82,7 +97,12 @@ class DataManager:
             # Use the correctly cased movement name
             movement_name = valid_movements[movement_lower]
 
+            print(f"Debug - Looking up movement: {movement_name}")
+
             with self._session_scope() as session:
+                # Verify WorkoutLog is still accessible
+                print(f"Debug - Verifying WorkoutLog in session context: {WorkoutLog}")
+
                 movement_record = session.query(Movement).filter(
                     func.lower(Movement.name) == movement_lower
                 ).first()
@@ -90,17 +110,26 @@ class DataManager:
                 if not movement_record:
                     raise ValueError(f"Movement '{movement}' not found in database")
 
-                workout_log = WorkoutLog(
-                    user_id=user_id,
-                    date=date,
-                    movement_id=movement_record.id,
-                    weight=float(weight),
-                    reps=int(reps),
-                    notes=notes,
-                    difficulty_level=movement_record.current_difficulty,
-                    completed_successfully=completed_successfully
-                )
+                # Create new workout log
+                try:
+                    workout_log = WorkoutLog(
+                        user_id=user_id,
+                        date=date,
+                        movement_id=movement_record.id,
+                        weight=float(weight),
+                        reps=int(reps),
+                        notes=notes,
+                        difficulty_level=movement_record.current_difficulty,
+                        completed_successfully=completed_successfully
+                    )
+                    print(f"Debug - Created workout log: {workout_log}")
+                except Exception as e:
+                    print(f"Error creating WorkoutLog: {str(e)}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    raise
+
                 session.add(workout_log)
+                session.flush()  # Flush to get the ID
 
                 # Update progression after logging
                 self._update_movement_progression(session, movement_record)
@@ -110,10 +139,13 @@ class DataManager:
 
                 print("Movement logged successfully")
                 return True
+
         except Exception as e:
             print(f"Detailed error in log_movement: {str(e)}")
+            print(f"Traceback: {traceback.format_exc()}")
             print(f"Type of movement: {type(movement)}")
             print(f"Type of WorkoutLog: {type(WorkoutLog) if 'WorkoutLog' in locals() else 'Not defined'}")
+            print(f"Module containing WorkoutLog: {WorkoutLog.__module__ if 'WorkoutLog' in locals() else 'Not available'}")
             raise Exception(f"Error logging movement: {str(e)}")
 
     def _update_movement_progression(self, session, movement_record):

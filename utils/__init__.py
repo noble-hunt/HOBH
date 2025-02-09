@@ -1,9 +1,11 @@
-# Initialize the utils package
+"""Initialize the utils package with proper import ordering."""
+# First import base components
+from .models import Base, Session, init_db
+
+# Then import model classes
 from .models import (
     WorkoutLog,
     Movement,
-    Session,
-    init_db,
     DifficultyLevel,
     UserProfile,
     Achievement,
@@ -11,10 +13,11 @@ from .models import (
 )
 
 __all__ = [
-    'WorkoutLog',
-    'Movement',
+    'Base',
     'Session',
     'init_db',
+    'WorkoutLog',
+    'Movement',
     'DifficultyLevel',
     'UserProfile',
     'Achievement',
