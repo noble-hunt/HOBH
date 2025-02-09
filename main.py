@@ -154,10 +154,10 @@ def show_social_hub():
 
             for workout in workouts:
                 with st.container():
-                    st.markdown(f"**Movement:** {workout.movement.name}")
-                    st.markdown(f"Weight: {workout.weight}kg × {workout.reps} reps")
-                    if workout.notes:
-                        st.markdown(f"_{workout.notes}_")
+                    st.markdown(f"**Movement:** {workout['movement']['name']}")
+                    st.markdown(f"Weight: {workout['weight']}kg × {workout['reps']} reps")
+                    if workout['notes']:
+                        st.markdown(f"_{workout['notes']}_")
                     st.markdown("---")
 
         except Exception as e:
@@ -196,12 +196,16 @@ def show_home():
         # Get user context for personalization
         user_context = {}
         if st.session_state.user_id:
-            recent_logs = data_manager.get_recent_logs(st.session_state.user_id)
-            if recent_logs and recent_logs[0].movement:
-                user_context = {
-                    'target_movement': recent_logs[0].movement.name if recent_logs else None,
-                    'current_streak': len(recent_logs)
-                }
+            try:
+                recent_logs = data_manager.get_recent_logs(st.session_state.user_id)
+                if recent_logs and len(recent_logs) > 0 and recent_logs[0].get('movement'):
+                    user_context = {
+                        'target_movement': recent_logs[0]['movement']['name'],
+                        'current_streak': len(recent_logs)
+                    }
+            except Exception as e:
+                st.error(f"Error loading recent activity: {str(e)}")
+                user_context = {}
 
         st.session_state.daily_quote = quote_generator.generate_workout_quote(user_context)
         st.session_state.quote_date = datetime.now()

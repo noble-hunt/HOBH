@@ -58,6 +58,47 @@ class DataManager:
         finally:
             session.close()
 
+    def get_recent_logs(self, user_id, limit=5):
+        """Get recent workout logs for a specific user with eager loading."""
+        try:
+            print(f"Debug - Getting recent logs for user {user_id}")
+            from sqlalchemy.orm import joinedload
+
+            with self._session_scope() as session:
+                # Query with eager loading
+                logs = session.query(WorkoutLog)\
+                    .options(joinedload(WorkoutLog.movement))\
+                    .filter_by(user_id=user_id)\
+                    .order_by(WorkoutLog.date.desc())\
+                    .limit(limit)\
+                    .all()
+
+                # Materialize all the data we need while session is open
+                materialized_logs = []
+                for log in logs:
+                    materialized_logs.append({
+                        'id': log.id,
+                        'date': log.date,
+                        'weight': log.weight,
+                        'reps': log.reps,
+                        'notes': log.notes,
+                        'difficulty_level': log.difficulty_level,
+                        'completed_successfully': log.completed_successfully,
+                        'movement': {
+                            'id': log.movement.id,
+                            'name': log.movement.name,
+                            'current_difficulty': log.movement.current_difficulty
+                        } if log.movement else None
+                    })
+
+                print(f"Debug - Retrieved {len(materialized_logs)} logs")
+                return materialized_logs
+
+        except Exception as e:
+            print(f"Error retrieving recent logs: {str(e)}")
+            print(f"Traceback: {traceback.format_exc()}")
+            return []
+
     def _initialize_database(self):
         """Initialize database with required tables and initial data."""
         try:
@@ -233,24 +274,6 @@ class DataManager:
             print(f"Error retrieving movement history: {e}")
             return pd.DataFrame()
 
-    def get_recent_logs(self, user_id, limit=5):
-        """Get recent workout logs for a specific user."""
-        try:
-            from sqlalchemy.orm import joinedload
-            with self._session_scope() as session:
-                logs = session.query(WorkoutLog)\
-                    .options(joinedload(WorkoutLog.movement))\
-                    .filter_by(user_id=user_id)\
-                    .order_by(WorkoutLog.date.desc())\
-                    .limit(limit)\
-                    .all()
-                # Materialize the movement data while session is still open
-                for log in logs:
-                    _ = log.movement.name
-                return logs
-        except SQLAlchemyError as e:
-            print(f"Error retrieving recent logs: {e}")
-            return []
     def get_achievements(self):
         """Get all earned achievements."""
         return self.achievement_manager.get_earned_achievements()
