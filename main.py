@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from utils.data_manager import DataManager
 from utils.openai_helper import WorkoutGenerator
-from utils.visualization import create_progress_chart, create_workout_summary, create_heatmap
+from utils.visualization import create_progress_chart, create_workout_summary, create_heatmap, create_3d_movement_progress
 from utils.social_manager import SocialManager
 from utils.auth_manager import AuthManager
 from utils.quote_generator import QuoteGenerator
@@ -454,8 +454,9 @@ def show_progress_tracker():
                     st.info(pred['message'])
 
         # Create tabs for different visualizations
-        tab1, tab2, tab3, tab4 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
             "Progress Charts", 
+            "3D Visualization",
             "Training Summary", 
             "Workout Patterns",
             "Training Insights"
@@ -467,6 +468,23 @@ def show_progress_tracker():
             st.plotly_chart(fig, use_container_width=True)
 
         with tab2:
+            # 3D Movement Progress
+            st.subheader("3D Progress Visualization")
+            fig_3d = create_3d_movement_progress(history, movement)
+            st.plotly_chart(fig_3d, use_container_width=True)
+
+            # Add explanation of the visualization
+            st.markdown("""
+            This 3D visualization shows your progress across three dimensions:
+            - Date (X-axis)
+            - Weight (Y-axis)
+            - Volume (Z-axis)
+
+            The color intensity represents the relative intensity of each workout.
+            You can rotate and zoom the visualization to explore your progress from different angles.
+            """)
+
+        with tab3:
             # Display workout summary statistics
             summary = create_workout_summary(history)
 
@@ -490,13 +508,20 @@ def show_progress_tracker():
                 display_df.sort_values('date', ascending=False).head(5)
             )
 
-        with tab3:
+        with tab4:
             # Display workout pattern heatmap
             st.subheader("Workout Patterns")
             heatmap = create_heatmap(history)
             st.plotly_chart(heatmap, use_container_width=True)
 
-        with tab4:
+            st.markdown("""
+            The heatmap shows your workout intensity patterns throughout the week:
+            - Darker colors indicate higher intensity workouts
+            - Lighter colors indicate lower intensity workouts
+            - White spaces indicate no workouts during those times
+            """)
+
+        with tab5:
             st.subheader("Training Insights")
             if prediction_data and prediction_data['insights']:
                 st.write(prediction_data['insights'])
