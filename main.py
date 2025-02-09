@@ -37,7 +37,7 @@ def login_user():
                 st.session_state.user_id = user_id
                 st.session_state.username = username
                 st.success("Successfully logged in!")
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error(error)
 
@@ -64,7 +64,7 @@ def signup_user():
                 st.session_state.user_id = user_id
                 st.session_state.username = username
                 st.success("Account created successfully!")
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error(error)
 
@@ -84,7 +84,7 @@ def main():
         if st.sidebar.button("Logout"):
             st.session_state.user_id = None
             st.session_state.username = None
-            st.experimental_rerun()
+            st.rerun()
 
     # Require login for all pages except login page
     if not st.session_state.user_id:
