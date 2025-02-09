@@ -8,6 +8,7 @@ import os
 from datetime import datetime
 import time
 
+# Create Base class for declarative models
 Base = declarative_base()
 
 # Achievement Types Enum
@@ -33,7 +34,7 @@ class EarnedAchievement(Base):
 
     id = Column(Integer, primary_key=True)
     achievement_id = Column(Integer, ForeignKey('achievements.id'), nullable=False)
-    user_id = Column(Integer, ForeignKey('user_profiles.id'), nullable=False)  # Add user_id
+    user_id = Column(Integer, ForeignKey('user_profiles.id'), nullable=False)
     date_earned = Column(DateTime, default=datetime.utcnow)
     movement_name = Column(String)  # Optional: specific movement this was earned for
 
@@ -63,10 +64,9 @@ class UserProfile(Base):
     password = Column(LargeBinary, nullable=False)
     display_name = Column(String)
     bio = Column(String)
-    # Add avatar customization fields
-    avatar_style = Column(String, default='adventurer')  # Default avatar style
-    avatar_background = Column(String, default='#F0F2F6')  # Default background color
-    avatar_features = Column(String)  # JSON string storing avatar features
+    avatar_style = Column(String, default='adventurer')
+    avatar_background = Column(String, default='#F0F2F6')
+    avatar_features = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -122,6 +122,7 @@ class SharedWorkout(Base):
 
 def get_db_engine(max_retries=3, retry_delay=1):
     """Create database engine with retry logic"""
+    print("Attempting to create database engine...")
     for attempt in range(max_retries):
         try:
             # Create engine without connection pooling and with SSL parameters
@@ -136,8 +137,10 @@ def get_db_engine(max_retries=3, retry_delay=1):
             # Test the connection using proper SQLAlchemy query
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
+            print("Database engine created successfully!")
             return engine
         except OperationalError as e:
+            print(f"Attempt {attempt + 1} failed: {str(e)}")
             if attempt == max_retries - 1:
                 raise
             time.sleep(retry_delay)
@@ -147,18 +150,22 @@ engine = get_db_engine()
 Session = sessionmaker(bind=engine)
 
 def init_db():
+    print("Initializing database...")
     max_retries = 3
     retry_delay = 1
 
     for attempt in range(max_retries):
         try:
+            print(f"Attempt {attempt + 1} to create tables...")
             Base.metadata.create_all(engine)
+            print("Tables created successfully!")
 
             # Initialize default achievements
             session = Session()
 
             # Check if achievements already exist
             if session.query(Achievement).count() == 0:
+                print("Adding default achievements...")
                 default_achievements = [
                     Achievement(
                         name="Weight Master",
@@ -191,10 +198,13 @@ def init_db():
                 ]
                 session.add_all(default_achievements)
                 session.commit()
+                print("Default achievements added successfully!")
 
             session.close()
+            print("Database initialization completed successfully!")
             break
         except (ProgrammingError, OperationalError) as e:
+            print(f"Error during attempt {attempt + 1}: {str(e)}")
             if attempt == max_retries - 1:
                 print(f"Failed to initialize database after {max_retries} attempts")
                 raise

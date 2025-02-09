@@ -2,16 +2,20 @@ import pandas as pd
 from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
-from .models import (
-    Session, 
-    Movement, 
-    WorkoutLog,  # Explicitly import WorkoutLog
-    init_db, 
+from utils.models import (
+    Session,
+    Movement,
+    WorkoutLog,
+    init_db,
     DifficultyLevel
 )
-from .achievement_manager import AchievementManager
+from utils.achievement_manager import AchievementManager
 from contextlib import contextmanager
-from .prediction import PRPredictor
+from utils.prediction import PRPredictor
+
+# Debug logging
+print("DataManager Module Loading")
+print(f"WorkoutLog imported as: {WorkoutLog}")
 
 class DataManager:
     def __init__(self):
@@ -21,8 +25,14 @@ class DataManager:
             "Back Squat", "Front Squat", "Deadlift", 
             "Bench Press", "Sumo Deadlift", "RDL"
         ]
-        self.achievement_manager = AchievementManager()
-        self._initialize_database()
+        try:
+            print("Initializing DataManager")
+            self.achievement_manager = AchievementManager()
+            self._initialize_database()
+            print("DataManager initialization complete")
+        except Exception as e:
+            print(f"Error initializing DataManager: {str(e)}")
+            raise
 
     @contextmanager
     def _session_scope(self):
@@ -38,39 +48,40 @@ class DataManager:
             session.close()
 
     def _initialize_database(self):
-        init_db()
-        with self._session_scope() as session:
-            # Add movements if they don't exist
-            existing_movements = session.query(Movement).all()
-            existing_names = {m.name for m in existing_movements}
+        try:
+            init_db()
+            with self._session_scope() as session:
+                # Add movements if they don't exist
+                existing_movements = session.query(Movement).all()
+                existing_names = {m.name for m in existing_movements}
 
-            for movement_name in self.movements:
-                if movement_name not in existing_names:
-                    movement = Movement(name=movement_name)
-                    session.add(movement)
-
-    def get_movements(self):
-        return self.movements
+                for movement_name in self.movements:
+                    if movement_name not in existing_names:
+                        movement = Movement(name=movement_name)
+                        session.add(movement)
+        except Exception as e:
+            print(f"Error in _initialize_database: {str(e)}")
+            raise
 
     def log_movement(self, user_id, movement, weight, reps, date, notes="", completed_successfully=1):
-        """Log a movement with proper type handling."""
-        # Ensure movement is a string and handle type conversion
+        """Log a movement with proper type handling and error reporting."""
         try:
+            print(f"Debug - WorkoutLog class available: {WorkoutLog}")
+            print(f"Debug - Movement input: {movement}, type: {type(movement)}")
+
+            # Ensure movement is a string
             movement = str(movement).strip()
-        except (TypeError, AttributeError):
-            raise ValueError(f"Invalid movement type: {type(movement)}. Movement must be a string.")
 
-        # Case-insensitive movement validation
-        valid_movements = {m.lower(): m for m in self.movements}
-        movement_lower = movement.lower()
+            # Case-insensitive movement validation
+            valid_movements = {m.lower(): m for m in self.movements}
+            movement_lower = movement.lower()
 
-        if movement_lower not in valid_movements:
-            raise ValueError(f"Invalid movement: {movement}. Valid movements are: {', '.join(self.movements)}")
+            if movement_lower not in valid_movements:
+                raise ValueError(f"Invalid movement: {movement}. Valid movements are: {', '.join(self.movements)}")
 
-        # Use the correctly cased movement name
-        movement_name = valid_movements[movement_lower]
+            # Use the correctly cased movement name
+            movement_name = valid_movements[movement_lower]
 
-        try:
             with self._session_scope() as session:
                 movement_record = session.query(Movement).filter(
                     func.lower(Movement.name) == movement_lower
@@ -97,12 +108,12 @@ class DataManager:
                 # Check for achievements
                 self.achievement_manager.check_and_award_achievements(workout_log)
 
-            return True
-        except SQLAlchemyError as e:
-            raise Exception(f"Database error while logging movement: {str(e)}")
-        except ValueError as e:
-            raise ValueError(f"Invalid input: {str(e)}")
+                print("Movement logged successfully")
+                return True
         except Exception as e:
+            print(f"Detailed error in log_movement: {str(e)}")
+            print(f"Type of movement: {type(movement)}")
+            print(f"Type of WorkoutLog: {type(WorkoutLog) if 'WorkoutLog' in locals() else 'Not defined'}")
             raise Exception(f"Error logging movement: {str(e)}")
 
     def _update_movement_progression(self, session, movement_record):
@@ -129,6 +140,9 @@ class DataManager:
                 if current_difficulty != DifficultyLevel.BEGINNER:
                     prev_level = list(DifficultyLevel)[list(DifficultyLevel).index(current_difficulty) - 1]
                     movement_record.current_difficulty = prev_level.value
+
+    def get_movements(self):
+        return self.movements
 
     def get_movement_difficulty(self, movement):
         try:
