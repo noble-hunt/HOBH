@@ -5,6 +5,7 @@ import numpy as np
 import streamlit as st
 from typing import Dict, List, Tuple, Optional
 import anthropic
+import json
 from datetime import datetime
 import os
 
@@ -15,7 +16,8 @@ class MovementAnalyzer:
         self.mp_pose = mp.solutions.pose
         self.pose = self.mp_pose.Pose(
             min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
+            min_tracking_confidence=0.5,
+            model_complexity=2  # Increased model complexity for better accuracy
         )
         self.mp_draw = mp.solutions.drawing_utils
 
@@ -27,105 +29,218 @@ class MovementAnalyzer:
         # Movement-specific angle thresholds and checkpoints
         self.movement_criteria = {
             "Clean": {
-                "start_position": "feet shoulder-width apart, bar over midfoot",
-                "key_points": [
-                    "maintain straight back",
-                    "bar close to shins",
-                    "shoulders over bar",
-                    "hips above knees"
-                ]
+                "start_position": {
+                    "description": "feet shoulder-width apart, bar over midfoot",
+                    "angles": {
+                        "hip": (170, 180),  # Nearly straight
+                        "knee": (140, 150),  # Slight bend
+                        "ankle": (80, 90)    # Neutral position
+                    }
+                },
+                "pulling_position": {
+                    "description": "explosive pull, bar close to body",
+                    "angles": {
+                        "hip": (100, 130),
+                        "knee": (120, 140),
+                        "ankle": (60, 80)
+                    }
+                },
+                "catch_position": {
+                    "description": "fast elbow turnover, full front rack",
+                    "angles": {
+                        "hip": (130, 150),
+                        "knee": (110, 130),
+                        "ankle": (70, 90)
+                    }
+                }
             },
             "Snatch": {
-                "start_position": "wide grip, feet shoulder-width apart",
-                "key_points": [
-                    "bar close to body",
-                    "explosive hip extension",
-                    "full lock-out overhead",
-                    "stable receiving position"
-                ]
+                "start_position": {
+                    "description": "wide grip, feet shoulder-width apart",
+                    "angles": {
+                        "hip": (165, 180),
+                        "knee": (135, 145),
+                        "ankle": (80, 90)
+                    }
+                },
+                "pulling_position": {
+                    "description": "explosive extension, bar close to body",
+                    "angles": {
+                        "hip": (95, 125),
+                        "knee": (115, 135),
+                        "ankle": (55, 75)
+                    }
+                },
+                "catch_position": {
+                    "description": "locked arms overhead, stable stance",
+                    "angles": {
+                        "hip": (140, 160),
+                        "knee": (120, 140),
+                        "shoulder": (170, 180)
+                    }
+                }
             }
         }
 
-    def process_frame(self, frame: np.ndarray) -> Tuple[np.ndarray, Dict]:
+    def start_analysis(self, movement_type: str):
+        """Start real-time movement analysis."""
+        st.title(f"Real-time {movement_type} Analysis")
+
+        # Create placeholders
+        video_placeholder = st.empty()
+        feedback_placeholder = st.empty()
+        form_score_placeholder = st.empty()
+
+        # Add movement-specific guidelines
+        if movement_type in self.movement_criteria:
+            st.sidebar.subheader("Movement Guidelines")
+
+            for phase, details in self.movement_criteria[movement_type].items():
+                st.sidebar.markdown(f"**{phase}:**")
+                st.sidebar.markdown(f"- {details['description']}")
+                if 'angles' in details:
+                    st.sidebar.markdown("Target angles:")
+                    for joint, (min_angle, max_angle) in details['angles'].items():
+                        st.sidebar.markdown(f"- {joint}: {min_angle}° - {max_angle}°")
+
+        # Initialize video capture
+        video_capture = cv2.VideoCapture(0)
+
+        try:
+            while True:
+                ret, frame = video_capture.read()
+                if not ret:
+                    break
+
+                # Process frame
+                processed_frame, feedback = self.process_frame(frame, movement_type)
+
+                # Update video feed
+                video_placeholder.image(
+                    cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB),
+                    channels="RGB",
+                    use_column_width=True
+                )
+
+                # Update feedback
+                suggestions_list = '\n'.join([f"- {s}" for s in feedback['suggestions']])
+                feedback_text = f"""
+                **Current Phase:** {feedback['phase']}
+
+                **Posture Assessment:** {feedback['posture']}
+
+                **Suggestions:**
+                {suggestions_list}
+                """
+                feedback_placeholder.markdown(feedback_text)
+
+                # Update form score with progress bar
+                form_score_placeholder.progress(feedback['confidence'])
+
+        except Exception as e:
+            st.error(f"Error during analysis: {str(e)}")
+        finally:
+            video_capture.release()
+
+    def process_frame(self, frame: np.ndarray, movement_type: str) -> Tuple[np.ndarray, Dict]:
         """
         Process a single frame and return the annotated frame with feedback.
-        
+
         Args:
             frame: Input video frame
-            
+            movement_type: Type of movement being analyzed
+
         Returns:
             Tuple of annotated frame and feedback dictionary
         """
         # Convert frame to RGB for MediaPipe
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
+
         # Get pose landmarks
         results = self.pose.process(frame_rgb)
-        
+
         # Initialize feedback
         feedback = {
             "posture": None,
             "suggestions": [],
-            "confidence": 0.0
+            "confidence": 0.0,
+            "phase": None
         }
-        
+
         if results.pose_landmarks:
-            # Draw pose landmarks on frame
-            self.mp_draw.draw_landmarks(
-                frame,
-                results.pose_landmarks,
-                self.mp_pose.POSE_CONNECTIONS
-            )
-            
+            # Draw pose landmarks
+            self._draw_advanced_pose(frame, results.pose_landmarks)
+
             # Analyze pose and get feedback
-            feedback = self._analyze_pose(results.pose_landmarks)
-            
-            # Add feedback overlay to frame
-            frame = self._add_feedback_overlay(frame, feedback)
-        
+            feedback = self._analyze_pose(results.pose_landmarks, movement_type)
+
+            # Add feedback overlay
+            frame = self._add_enhanced_feedback_overlay(frame, feedback, movement_type)
+
         return frame, feedback
 
-    def _analyze_pose(self, landmarks) -> Dict:
-        """
-        Analyze pose landmarks and generate feedback.
-        
-        Args:
-            landmarks: MediaPipe pose landmarks
-            
-        Returns:
-            Dictionary containing feedback and suggestions
-        """
-        # Extract key angles and positions
+    def _draw_advanced_pose(self, frame: np.ndarray, landmarks) -> None:
+        """Draw enhanced pose landmarks with joint angles."""
+        # Draw basic pose
+        self.mp_draw.draw_landmarks(
+            frame,
+            landmarks,
+            self.mp_pose.POSE_CONNECTIONS,
+            landmark_drawing_spec=self.mp_draw.DrawingSpec(
+                color=(0, 255, 0),
+                thickness=2,
+                circle_radius=2
+            ),
+            connection_drawing_spec=self.mp_draw.DrawingSpec(
+                color=(245, 117, 66),
+                thickness=2
+            )
+        )
+
+        # Draw joint angles
         angles = self._calculate_joint_angles(landmarks)
-        
-        # Prepare landmark data for AI analysis
+        for joint, angle in angles.items():
+            if joint in ['hip', 'knee', 'ankle']:
+                landmark = landmarks.landmark[getattr(self.mp_pose.PoseLandmark, f"{joint.upper()}_RIGHT")]
+                position = (
+                    int(landmark.x * frame.shape[1]),
+                    int(landmark.y * frame.shape[0])
+                )
+                cv2.putText(
+                    frame,
+                    f"{joint}: {angle:.1f}°",
+                    position,
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (255, 255, 255),
+                    2
+                )
+
+    def _analyze_pose(self, landmarks, movement_type: str) -> Dict:
+        """Analyze pose landmarks and generate feedback."""
+        angles = self._calculate_joint_angles(landmarks)
         landmark_data = self._prepare_landmark_data(landmarks)
-        
-        # Get AI-powered feedback
-        feedback = self._get_ai_feedback(landmark_data, angles)
-        
+        feedback = self._get_ai_feedback(landmark_data, angles, movement_type)
         return feedback
 
     def _calculate_joint_angles(self, landmarks) -> Dict[str, float]:
         """Calculate key joint angles from landmarks."""
         angles = {}
-        
-        # Helper function to calculate angle between three points
+
         def calculate_angle(a, b, c) -> float:
             a = np.array([a.x, a.y, a.z])
             b = np.array([b.x, b.y, b.z])
             c = np.array([c.x, c.y, c.z])
-            
+
             radians = np.arctan2(c[1]-b[1], c[0]-b[0]) - \
                      np.arctan2(a[1]-b[1], a[0]-b[0])
             angle = np.abs(radians*180.0/np.pi)
-            
+
             if angle > 180.0:
                 angle = 360-angle
-                
+
             return angle
-        
-        # Calculate key angles
+
         try:
             # Hip angle
             angles['hip'] = calculate_angle(
@@ -133,24 +248,31 @@ class MovementAnalyzer:
                 landmarks.landmark[self.mp_pose.PoseLandmark.HIP_RIGHT],
                 landmarks.landmark[self.mp_pose.PoseLandmark.KNEE_RIGHT]
             )
-            
+
             # Knee angle
             angles['knee'] = calculate_angle(
                 landmarks.landmark[self.mp_pose.PoseLandmark.HIP_RIGHT],
                 landmarks.landmark[self.mp_pose.PoseLandmark.KNEE_RIGHT],
                 landmarks.landmark[self.mp_pose.PoseLandmark.ANKLE_RIGHT]
             )
-            
+
+            # Ankle angle
+            angles['ankle'] = calculate_angle(
+                landmarks.landmark[self.mp_pose.PoseLandmark.KNEE_RIGHT],
+                landmarks.landmark[self.mp_pose.PoseLandmark.ANKLE_RIGHT],
+                landmarks.landmark[self.mp_pose.PoseLandmark.HEEL_RIGHT]
+            )
+
             # Back angle (relative to vertical)
             shoulder = landmarks.landmark[self.mp_pose.PoseLandmark.SHOULDER_RIGHT]
             hip = landmarks.landmark[self.mp_pose.PoseLandmark.HIP_RIGHT]
             vertical = mp.solutions.pose.PoseLandmark(x=shoulder.x, y=0, z=shoulder.z)
             angles['back'] = calculate_angle(vertical, shoulder, hip)
-            
+
         except Exception as e:
             print(f"Error calculating angles: {str(e)}")
             return {}
-        
+
         return angles
 
     def _prepare_landmark_data(self, landmarks) -> str:
@@ -159,29 +281,29 @@ class MovementAnalyzer:
             "hip_angle": self._calculate_joint_angles(landmarks).get('hip', 0),
             "knee_angle": self._calculate_joint_angles(landmarks).get('knee', 0),
             "back_angle": self._calculate_joint_angles(landmarks).get('back', 0),
+            "ankle_angle": self._calculate_joint_angles(landmarks).get('ankle', 0)
         }
-        
+
         return str(key_points)
 
-    def _get_ai_feedback(self, landmark_data: str, angles: Dict[str, float]) -> Dict:
+    def _get_ai_feedback(self, landmark_data: str, angles: Dict[str, float], movement_type: str) -> Dict:
         """Get AI-powered feedback on form."""
         try:
             # Prepare prompt for Claude
-            prompt = f"""Analyze this Olympic weightlifting position:
+            prompt = f"""Analyze this Olympic weightlifting position for a {movement_type}:
             Joint Angles: {angles}
             Landmark Data: {landmark_data}
-            
-            Provide specific feedback on:
-            1. Posture and alignment
-            2. Potential form issues
-            3. Specific corrections
-            
+
+            Determine the current phase (e.g., start, pulling, catch).
+            Provide specific feedback on posture and alignment, potential form issues, and specific corrections.
+
             Format response as JSON with keys:
+            - phase: Current movement phase
             - posture: Overall posture assessment
             - suggestions: List of specific suggestions
             - confidence: Confidence score (0-1)
             """
-            
+
             # Get AI response
             response = self.client.messages.create(
                 model="claude-3-5-sonnet-20241022",
@@ -192,24 +314,105 @@ class MovementAnalyzer:
                 temperature=0.2,
                 max_tokens=150
             )
-            
+
             # Parse response
-            feedback = response.content
-            
+            try:
+                feedback_text = response.content
+                feedback = json.loads(feedback_text)
+            except (json.JSONDecodeError, AttributeError):
+                feedback = {
+                    "phase": "Unknown",
+                    "posture": "Analysis failed",
+                    "suggestions": ["Unable to analyze movement"],
+                    "confidence": 0.0
+                }
             return feedback
         except Exception as e:
             print(f"Error getting AI feedback: {str(e)}")
             return {
+                "phase": "Unknown",
                 "posture": "Unable to analyze",
-                "suggestions": [],
+                "suggestions": ["System error occurred"],
                 "confidence": 0.0
             }
+
+    def _add_enhanced_feedback_overlay(self, frame: np.ndarray, feedback: Dict, movement_type: str) -> np.ndarray:
+        """Add enhanced feedback overlay with movement-specific guidance."""
+        # Create semi-transparent overlay
+        overlay = frame.copy()
+        alpha = 0.7
+
+        # Add movement phase indicator
+        if feedback["phase"]:
+            cv2.putText(
+                overlay,
+                f"Phase: {feedback['phase']}",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 255, 0),
+                2
+            )
+
+        # Add posture feedback with color coding
+        if feedback["posture"]:
+            color = (0, 255, 0) if feedback["confidence"] > 0.7 else (0, 255, 255)
+            cv2.putText(
+                overlay,
+                feedback["posture"],
+                (10, 70),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                color,
+                2
+            )
+
+        # Add suggestions with visual indicators
+        for i, suggestion in enumerate(feedback["suggestions"]):
+            cv2.putText(
+                overlay,
+                f"→ {suggestion}",
+                (10, 110 + (i * 30)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 200, 0),
+                2
+            )
+
+        # Add confidence meter
+        confidence_width = int(200 * feedback["confidence"])
+        cv2.rectangle(
+            overlay,
+            (10, frame.shape[0] - 40),
+            (210, frame.shape[0] - 20),
+            (100, 100, 100),
+            -1
+        )
+        cv2.rectangle(
+            overlay,
+            (10, frame.shape[0] - 40),
+            (10 + confidence_width, frame.shape[0] - 20),
+            (0, 255, 0),
+            -1
+        )
+        cv2.putText(
+            overlay,
+            f"Form Score: {int(feedback['confidence'] * 100)}%",
+            (10, frame.shape[0] - 50),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (255, 255, 255),
+            2
+        )
+
+        # Blend overlay with original frame
+        return cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
 
     def _add_feedback_overlay(self, frame: np.ndarray, feedback: Dict) -> np.ndarray:
         """Add feedback overlay to frame."""
         # Create semi-transparent overlay
         overlay = frame.copy()
-        
+
         # Add feedback text
         if feedback["posture"]:
             cv2.putText(
@@ -221,7 +424,7 @@ class MovementAnalyzer:
                 (0, 255, 0),
                 2
             )
-            
+
         # Add suggestions
         for i, suggestion in enumerate(feedback["suggestions"]):
             cv2.putText(
@@ -233,7 +436,7 @@ class MovementAnalyzer:
                 (255, 255, 0),
                 2
             )
-            
+
         # Add confidence score
         cv2.putText(
             overlay,
@@ -244,54 +447,9 @@ class MovementAnalyzer:
             (0, 255, 255),
             2
         )
-        
+
         # Blend overlay with original frame
         alpha = 0.7
         frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
-        
-        return frame
 
-    def start_analysis(self, movement_type: str):
-        """Start real-time movement analysis."""
-        st.title(f"Real-time {movement_type} Analysis")
-        
-        # Create placeholder for video feed
-        video_placeholder = st.empty()
-        
-        # Create feedback placeholder
-        feedback_placeholder = st.empty()
-        
-        # Add movement-specific guidelines
-        if movement_type in self.movement_criteria:
-            st.sidebar.subheader("Movement Guidelines")
-            st.sidebar.write(f"Start Position: {self.movement_criteria[movement_type]['start_position']}")
-            st.sidebar.write("Key Points:")
-            for point in self.movement_criteria[movement_type]['key_points']:
-                st.sidebar.write(f"- {point}")
-        
-        # Initialize video capture
-        video_capture = cv2.VideoCapture(0)
-        
-        try:
-            while True:
-                ret, frame = video_capture.read()
-                if not ret:
-                    break
-                
-                # Process frame
-                processed_frame, feedback = self.process_frame(frame)
-                
-                # Update video feed
-                video_placeholder.image(
-                    cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB),
-                    channels="RGB",
-                    use_column_width=True
-                )
-                
-                # Update feedback
-                feedback_placeholder.json(feedback)
-                
-        except Exception as e:
-            st.error(f"Error during analysis: {str(e)}")
-        finally:
-            video_capture.release()
+        return frame

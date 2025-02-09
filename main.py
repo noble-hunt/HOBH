@@ -358,23 +358,42 @@ def show_log_movement():
 
     with tab2:
         st.subheader("Real-time Form Analysis")
+        col1, col2 = st.columns([3, 1])
 
-        # Initialize movement analyzer
-        analyzer = MovementAnalyzer()
+        with col1:
+            # Movement selection for analysis
+            selected_movement = st.selectbox(
+                "Select movement to analyze",
+                ["Clean", "Snatch"],  # Only show movements with defined criteria
+                key="analysis_movement"
+            )
 
-        # Movement selection for analysis
-        selected_movement = st.selectbox(
-            "Select movement to analyze",
-            data_manager.get_movements(),
-            key="analysis_movement"
-        )
+            # Initialize movement analyzer
+            analyzer = MovementAnalyzer()
 
-        # Start analysis button
-        if st.button("Start Analysis"):
-            try:
-                analyzer.start_analysis(selected_movement)
-            except Exception as e:
-                st.error(f"Error starting analysis: {str(e)}")
+            # Add help text
+            st.markdown("""
+            ### How to use:
+            1. Select your movement type
+            2. Position yourself so your full body is visible
+            3. Press 'Start Analysis' to begin
+            4. Follow the real-time feedback and suggestions
+
+            The analyzer will provide:
+            - Real-time form feedback
+            - Joint angle measurements
+            - Movement phase detection
+            - Form score and suggestions
+            """)
+
+        with col2:
+            # Start analysis button with clear visual prominence
+            if st.button("Start Analysis", key="start_analysis", use_container_width=True):
+                try:
+                    analyzer.start_analysis(selected_movement)
+                except Exception as e:
+                    st.error(f"Error starting analysis: {str(e)}")
+                    st.info("Please ensure your camera is connected and accessible.")
 
 
 def show_workout_generator():
