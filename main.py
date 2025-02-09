@@ -10,6 +10,7 @@ from utils.avatar_manager import AvatarManager # Added import
 import plotly.express as px
 from pathlib import Path
 from datetime import datetime
+from utils.recovery_calculator import RecoveryCalculator  # Add this import
 
 st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
 
@@ -196,7 +197,7 @@ def show_home():
         st.session_state.daily_quote = quote_generator.generate_workout_quote(user_context)
         st.session_state.quote_date = datetime.now()
 
-    # Display the quote in a styled container with reduced margins
+    # Display the quote
     st.markdown(
         f"""
         <div style="padding: 1rem; background-color: #f8f9fa; border-radius: 10px; 
@@ -209,10 +210,66 @@ def show_home():
         unsafe_allow_html=True
     )
 
-    # Display PRs and Difficulty Levels
-    st.subheader("Movement Status")
+    # Add Recovery and Strain Score Section
+    st.subheader("Training Load Status")
 
-    # Create a more compact layout with 4 columns
+    # Initialize recovery calculator
+    recovery_calc = RecoveryCalculator()
+
+    # Create two columns for recovery and strain scores
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # Calculate and display recovery score
+        recovery_data = recovery_calc.calculate_recovery_score(
+            st.session_state.user_id,
+            datetime.now()
+        )
+
+        # Create recovery score card
+        st.markdown(
+            f"""
+            <div style="padding: 1rem; background-color: {_get_recovery_color(recovery_data['recovery_score'])}; 
+                        border-radius: 10px; margin: 0.5rem 0;">
+                <h3 style="margin: 0; color: white;">Recovery Score</h3>
+                <h2 style="margin: 0.5rem 0; color: white;">{recovery_data['recovery_score']}/10</h2>
+                <p style="margin: 0; color: white;">{recovery_data['message']}</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with col2:
+        # Calculate and display strain score
+        strain_data = recovery_calc.calculate_strain_score(
+            st.session_state.user_id,
+            datetime.now()
+        )
+
+        # Create strain score card
+        st.markdown(
+            f"""
+            <div style="padding: 1rem; background-color: {_get_strain_color(strain_data['strain_score'])}; 
+                        border-radius: 10px; margin: 0.5rem 0;">
+                <h3 style="margin: 0; color: white;">Training Strain</h3>
+                <h2 style="margin: 0.5rem 0; color: white;">{strain_data['strain_score']}/10</h2>
+                <p style="margin: 0; color: white;">{strain_data['message']}</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # If there's training data, show the strain components
+        if strain_data['strain_score'] > 0:
+            with st.expander("View Strain Components"):
+                components = strain_data['components']
+                st.markdown(f"""
+                    - Volume Load: {components['volume']:.1f}/10
+                    - Relative Intensity: {components['intensity']:.1f}/10
+                    - Training Frequency: {components['frequency']:.1f}/10
+                """)
+
+    st.subheader("Movement Status")
     cols = st.columns(4)
     movements = data_manager.get_movements()
     prs = data_manager.get_prs()
@@ -523,6 +580,28 @@ def show_profile():
                         st.warning("Avatar preview not available")
                 except Exception as e:
                     st.error(f"Error displaying avatar: {str(e)}")
+
+def _get_recovery_color(score):
+    """Get background color for recovery score card."""
+    if score <= 3:
+        return "#dc3545"  # Red
+    elif score <= 6:
+        return "#ffc107"  # Yellow
+    elif score <= 8:
+        return "#28a745"  # Green
+    else:
+        return "#20c997"  # Teal
+
+def _get_strain_color(score):
+    """Get background color for strain score card."""
+    if score <= 3:
+        return "#20c997"  # Teal
+    elif score <= 6:
+        return "#28a745"  # Green
+    elif score <= 8:
+        return "#ffc107"  # Yellow
+    else:
+        return "#dc3545"  # Red
 
 if __name__ == "__main__":
     main()
