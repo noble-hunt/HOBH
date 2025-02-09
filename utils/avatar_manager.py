@@ -1,8 +1,15 @@
-import py_avataaars as pa
 import json
 from .models import Session, UserProfile
 from contextlib import contextmanager
 from sqlalchemy.exc import SQLAlchemyError
+import traceback
+
+try:
+    import py_avataaars as pa
+    AVATAAARS_AVAILABLE = True
+except ImportError:
+    print("Warning: py-avataaars not available")
+    AVATAAARS_AVAILABLE = False
 
 class AvatarManager:
     def __init__(self):
@@ -12,7 +19,7 @@ class AvatarManager:
             'bottts', 'croodles', 'croodles-neutral',
             'miniavs', 'personas'
         ]
-        
+
         self.available_features = {
             'skin_color': ['light', 'medium', 'dark'],
             'hair_color': ['black', 'brown', 'blonde', 'red', 'gray'],
@@ -52,7 +59,7 @@ class AvatarManager:
                 user.avatar_style = style
                 user.avatar_background = background_color
                 user.avatar_features = json.dumps(features)
-                
+
                 return True, "Avatar updated successfully"
         except SQLAlchemyError as e:
             return False, f"Database error: {str(e)}"
@@ -75,13 +82,61 @@ class AvatarManager:
 
     def generate_avatar_svg(self, settings):
         """Generate avatar SVG based on settings."""
+        if not AVATAAARS_AVAILABLE:
+            return None
+
         try:
+            # Create a basic avatar with default features
             avatar = pa.PyAvataaar(
-                style=settings['style'],
-                background_color=settings['background'],
-                **settings['features']
+                style=pa.AvatarStyle.TRANSPARENT,
+                background_color=settings.get('background', '#F0F2F6')
             )
+
+            # Set features if available
+            features = settings.get('features', {})
+
+            # Set skin color
+            if 'skin_color' in features:
+                try:
+                    skin_color = features['skin_color'].upper()
+                    avatar.skin_color = getattr(pa.SkinColor, skin_color)
+                except (AttributeError, ValueError):
+                    pass
+
+            # Set hair color
+            if 'hair_color' in features:
+                try:
+                    hair_color = features['hair_color'].upper()
+                    avatar.hair_color = getattr(pa.HairColor, hair_color)
+                except (AttributeError, ValueError):
+                    pass
+
+            # Set hair style
+            if 'hair_style' in features:
+                try:
+                    hair_style = features['hair_style'].upper()
+                    avatar.hair_type = getattr(pa.HairType, hair_style)
+                except (AttributeError, ValueError):
+                    pass
+
+            # Set facial hair
+            if 'facial_hair' in features and features['facial_hair'] != 'none':
+                try:
+                    facial_hair = features['facial_hair'].upper()
+                    avatar.facial_hair_type = getattr(pa.FacialHairType, facial_hair)
+                except (AttributeError, ValueError):
+                    pass
+
+            # Set accessories
+            if 'accessories' in features and features['accessories'] != 'none':
+                try:
+                    accessories = features['accessories'].upper()
+                    avatar.accessories_type = getattr(pa.AccessoriesType, accessories)
+                except (AttributeError, ValueError):
+                    pass
+
             return avatar.render_svg()
         except Exception as e:
             print(f"Error generating avatar: {e}")
+            print(traceback.format_exc())
             return None

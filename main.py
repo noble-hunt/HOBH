@@ -473,13 +473,12 @@ def show_profile():
             selected_style = st.selectbox(
                 "Avatar Style",
                 options=available_options['styles'],
-                index=available_options['styles'].index(current_settings['style']) 
-                if current_settings else 0
+                index=0
             )
 
             selected_background = st.color_picker(
                 "Background Color",
-                value=current_settings['background'] if current_settings else "#F0F2F6"
+                value="#F0F2F6"
             )
 
             # Feature selection
@@ -489,8 +488,7 @@ def show_profile():
                 features[feature] = st.selectbox(
                     feature.replace('_', ' ').title(),
                     options=options,
-                    index=options.index(current_settings['features'].get(feature, options[0]))
-                    if current_settings and feature in current_settings['features'] else 0
+                    index=0
                 )
 
             if st.form_submit_button("Update Avatar"):
@@ -502,20 +500,29 @@ def show_profile():
                 )
                 if success:
                     st.success("Avatar updated successfully!")
+                    st.experimental_rerun()
                 else:
                     st.error(message)
 
-        # Display current avatar
+        # Display current settings and avatar preview
         if current_settings:
-            try:
-                avatar_svg = avatar_manager.generate_avatar_svg(current_settings)
-                if avatar_svg:
-                    st.image(avatar_svg, width=200)
-                else:
-                    st.error("Failed to generate avatar preview")
-            except Exception as e:
-                st.error(f"Error displaying avatar: {str(e)}")
+            # Create columns for settings and preview
+            col1, col2 = st.columns([1, 1])
 
+            with col1:
+                st.subheader("Current Settings")
+                st.json(current_settings)
+
+            with col2:
+                st.subheader("Avatar Preview")
+                try:
+                    avatar_svg = avatar_manager.generate_avatar_svg(current_settings)
+                    if avatar_svg:
+                        st.image(avatar_svg, width=200)
+                    else:
+                        st.warning("Avatar preview not available")
+                except Exception as e:
+                    st.error(f"Error displaying avatar: {str(e)}")
 
 if __name__ == "__main__":
     main()
