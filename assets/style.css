@@ -1,0 +1,93 @@
+/* Main container styling */
+.stApp {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Header styling */
+h1 {
+    color: #1E1E1E;
+    font-weight: 700;
+}
+
+h2, h3 {
+    color: #2C3E50;
+    font-weight: 600;
+}
+
+/* Metrics styling */
+[data-testid="stMetricValue"] {
+    font-size: 2rem !important;
+    font-weight: 700;
+    color: #FF4B4B;
+}
+
+[data-testid="stMetricLabel"] {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* Form styling */
+[data-testid="stForm"] {
+    background-color: #F8F9FA;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Button styling */
+.stButton > button {
+    background-color: #FF4B4B;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    font-weight: 600;
+    transition: background-color 0.3s;
+}
+
+.stButton > button:hover {
+    background-color: #E64444;
+}
+
+/* Workout plan styling */
+.workout-plan {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.workout-plan h3 {
+    color: #FF4B4B;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.workout-plan ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+.workout-plan li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+/* Progress chart styling */
+[data-testid="stPlotlyChart"] {
+    background-color: white;
+    padding: 1rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Mobile responsiveness */
+@media screen and (max-width: 768px) {
+    .workout-plan {
+        padding: 1rem;
+    }
+    
+    [data-testid="stMetricValue"] {
+        font-size: 1.5rem !important;
+    }
+}
