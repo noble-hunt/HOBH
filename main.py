@@ -332,7 +332,16 @@ def show_log_movement():
         if submitted:
             try:
                 success_value = 1 if completed_successfully == "Successful" else 0
-                data_manager.log_movement(movement, weight, reps, date, notes, success_value)
+                # Fix parameter order and add explicit parameter names
+                data_manager.log_movement(
+                    user_id=st.session_state.user_id,
+                    movement=movement,
+                    weight=weight,
+                    reps=reps,
+                    date=date,
+                    notes=notes,
+                    completed_successfully=success_value
+                )
 
                 # Show current difficulty level after logging
                 current_difficulty = data_manager.get_movement_difficulty(movement)
