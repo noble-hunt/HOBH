@@ -81,12 +81,36 @@ h2, h3 {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
+/* Difficulty level indicators */
+.movement-card {
+    background-color: white;
+    padding: 1rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    transition: transform 0.2s;
+}
+
+.movement-card:hover {
+    transform: translateY(-2px);
+}
+
+/* Status indicators */
+.success-status {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.failed-status {
+    color: #dc3545;
+    font-weight: bold;
+}
+
 /* Mobile responsiveness */
 @media screen and (max-width: 768px) {
     .workout-plan {
         padding: 1rem;
     }
-    
+
     [data-testid="stMetricValue"] {
         font-size: 1.5rem !important;
     }
