@@ -140,19 +140,27 @@ class MovementAnalyzer:
                     video_placeholder.image(
                         cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB),
                         channels="RGB",
-                        use_column_width=True
+                        use_container_width=True  # Updated from use_column_width
                     )
 
-                    # Update feedback
-                    suggestions_list = '\n'.join([f"- {s}" for s in feedback['suggestions']])
-                    feedback_text = f"""
-                    **Current Phase:** {feedback['phase']}
+                    # Update feedback with error handling
+                    if feedback.get('error'):
+                        feedback_text = f"""
+                        ⚠️ **Analysis Status:** {feedback['error']}
 
-                    **Posture Assessment:** {feedback['posture']}
+                        **Joint Angles:**
+                        {feedback.get('angles', 'Not available')}
+                        """
+                    else:
+                        suggestions_list = '\n'.join([f"- {s}" for s in feedback['suggestions']])
+                        feedback_text = f"""
+                        **Current Phase:** {feedback['phase']}
 
-                    **Suggestions:**
-                    {suggestions_list}
-                    """
+                        **Posture Assessment:** {feedback['posture']}
+
+                        **Suggestions:**
+                        {suggestions_list}
+                        """
                     feedback_placeholder.markdown(feedback_text)
 
                     # Update form score
@@ -321,52 +329,113 @@ class MovementAnalyzer:
     def _get_ai_feedback(self, landmark_data: str, angles: Dict[str, float], movement_type: str) -> Dict:
         """Get AI-powered feedback on form."""
         try:
-            # Prepare prompt for Claude
-            prompt = f"""Analyze this Olympic weightlifting position for a {movement_type}:
-            Joint Angles: {angles}
-            Landmark Data: {landmark_data}
-
-            Determine the current phase (e.g., start, pulling, catch).
-            Provide specific feedback on posture and alignment, potential form issues, and specific corrections.
-
-            Format response as JSON with keys:
-            - phase: Current movement phase
-            - posture: Overall posture assessment
-            - suggestions: List of specific suggestions
-            - confidence: Confidence score (0-1)
-            """
-
-            # Get AI response
-            response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                messages=[{
-                    "role": "user",
-                    "content": prompt
-                }],
-                temperature=0.2,
-                max_tokens=150
-            )
-
-            # Parse response
-            try:
-                feedback_text = response.content
-                feedback = json.loads(feedback_text)
-            except (json.JSONDecodeError, AttributeError):
-                feedback = {
-                    "phase": "Unknown",
-                    "posture": "Analysis failed",
-                    "suggestions": ["Unable to analyze movement"],
+            # First check if we have valid angles data
+            if not angles:
+                return {
+                    "error": "Unable to detect body positions accurately",
+                    "angles": "No valid angles detected",
                     "confidence": 0.0
                 }
-            return feedback
+
+            # Build detailed prompt for better analysis
+            movement_criteria = self.movement_criteria.get(movement_type, {})
+            prompt = f"""You are an Olympic weightlifting coach analyzing a {movement_type} movement.
+
+Current position data:
+Joint Angles: {angles}
+Landmark Data: {landmark_data}
+
+Movement criteria:
+{json.dumps(movement_criteria, indent=2)}
+
+Based on this data, provide a detailed analysis in JSON format with the following structure:
+{{
+    "phase": "start_position|pulling_position|catch_position",
+    "posture": "Clear description of current posture",
+    "suggestions": ["Specific, actionable feedback points"],
+    "confidence": "Score between 0-1 based on form accuracy"
+}}
+
+Focus on comparing current angles with ideal ranges and providing specific corrections."""
+
+            # Get AI response with retry logic
+            try:
+                response = self.client.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    messages=[{
+                        "role": "user",
+                        "content": prompt
+                    }],
+                    temperature=0.2,
+                    max_tokens=150
+                )
+
+                # Parse response
+                if hasattr(response, 'content'):
+                    try:
+                        # Extract JSON from the response content
+                        content = response.content
+                        if isinstance(content, str):
+                            # Find JSON-like content within the string
+                            start_idx = content.find('{')
+                            end_idx = content.rfind('}') + 1
+                            if start_idx >= 0 and end_idx > start_idx:
+                                json_str = content[start_idx:end_idx]
+                                feedback = json.loads(json_str)
+                                # Validate required fields
+                                if all(k in feedback for k in ['phase', 'posture', 'suggestions', 'confidence']):
+                                    return feedback
+
+                    except json.JSONDecodeError:
+                        pass  # Fall through to default response
+
+            except Exception as api_error:
+                print(f"API Error: {str(api_error)}")
+
+            # If API fails or response is invalid, provide basic feedback based on angles
+            return self._generate_basic_feedback(angles, movement_type)
+
         except Exception as e:
-            print(f"Error getting AI feedback: {str(e)}")
+            print(f"Error in form analysis: {str(e)}")
             return {
-                "phase": "Unknown",
-                "posture": "Unable to analyze",
-                "suggestions": ["System error occurred"],
+                "error": "Form analysis temporarily unavailable",
+                "angles": str(angles),
                 "confidence": 0.0
             }
+
+    def _generate_basic_feedback(self, angles: Dict[str, float], movement_type: str) -> Dict:
+        """Generate basic feedback when AI analysis is unavailable."""
+        movement_criteria = self.movement_criteria.get(movement_type, {})
+        feedback = {
+            "phase": "Unknown",
+            "posture": "Basic form analysis",
+            "suggestions": [],
+            "confidence": 0.5
+        }
+
+        for phase, criteria in movement_criteria.items():
+            if 'angles' in criteria:
+                matches = 0
+                total = 0
+                for joint, (min_angle, max_angle) in criteria['angles'].items():
+                    if joint in angles:
+                        total += 1
+                        if min_angle <= angles[joint] <= max_angle:
+                            matches += 1
+                            feedback["suggestions"].append(f"Good {joint} angle")
+                        else:
+                            feedback["suggestions"].append(
+                                f"Adjust {joint} angle (current: {angles[joint]:.1f}°, target: {min_angle}°-{max_angle}°)"
+                            )
+
+                if total > 0 and matches/total > 0.7:
+                    feedback["phase"] = phase
+                    feedback["confidence"] = matches/total
+
+        if not feedback["suggestions"]:
+            feedback["suggestions"] = ["Maintain proper form", "Keep core engaged", "Stay balanced"]
+
+        return feedback
 
     def _add_enhanced_feedback_overlay(self, frame: np.ndarray, feedback: Dict, movement_type: str) -> np.ndarray:
         """Add enhanced feedback overlay with movement-specific guidance."""

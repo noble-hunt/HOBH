@@ -411,7 +411,7 @@ def show_log_movement():
             if st.button(
                 "Start Analysis",
                 key="start_analysis",
-                use_container_width=True,
+                use_container_width=True,  # Updated from use_column_width
                 disabled=start_button_disabled
             ):
                 try:
