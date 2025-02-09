@@ -1,8 +1,9 @@
 import pandas as pd
 from datetime import datetime
-from .models import Session, Movement, WorkoutLog, init_db
+from .models import Session, Movement, WorkoutLog, init_db, DifficultyLevel
 from contextlib import contextmanager
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import func
 
 class DataManager:
     def __init__(self):
@@ -41,7 +42,7 @@ class DataManager:
     def get_movements(self):
         return self.movements
 
-    def log_movement(self, movement, weight, reps, date, notes=""):
+    def log_movement(self, movement, weight, reps, date, notes="", completed_successfully=1):
         if movement not in self.movements:
             raise ValueError("Invalid movement")
 
@@ -56,9 +57,14 @@ class DataManager:
                     movement_id=movement_record.id,
                     weight=float(weight),
                     reps=int(reps),
-                    notes=notes
+                    notes=notes,
+                    difficulty_level=movement_record.current_difficulty,
+                    completed_successfully=completed_successfully
                 )
                 session.add(workout_log)
+
+                # Update progression after logging
+                self._update_movement_progression(session, movement_record)
             return True
         except SQLAlchemyError as e:
             raise Exception(f"Database error while logging movement: {str(e)}")
@@ -66,6 +72,39 @@ class DataManager:
             raise ValueError(f"Invalid input: {str(e)}")
         except Exception as e:
             raise Exception(f"Error logging movement: {str(e)}")
+
+    def _update_movement_progression(self, session, movement_record):
+        """Update movement difficulty based on recent performance"""
+        recent_logs = session.query(WorkoutLog)\
+            .filter_by(movement_id=movement_record.id)\
+            .order_by(WorkoutLog.date.desc())\
+            .limit(movement_record.progression_threshold)\
+            .all()
+
+        if len(recent_logs) >= movement_record.progression_threshold:
+            successful_sessions = sum(log.completed_successfully for log in recent_logs)
+
+            # Progress if all recent sessions were successful
+            if successful_sessions == movement_record.progression_threshold:
+                current_level = movement_record.current_difficulty
+                if current_level != DifficultyLevel.ELITE:
+                    next_level = DifficultyLevel(current_level.value + 1)
+                    movement_record.current_difficulty = next_level
+            # Regress if more than half were unsuccessful
+            elif successful_sessions < (movement_record.progression_threshold // 2):
+                current_level = movement_record.current_difficulty
+                if current_level != DifficultyLevel.BEGINNER:
+                    prev_level = DifficultyLevel(current_level.value - 1)
+                    movement_record.current_difficulty = prev_level
+
+    def get_movement_difficulty(self, movement):
+        try:
+            with self._session_scope() as session:
+                movement_record = session.query(Movement).filter_by(name=movement).first()
+                return movement_record.current_difficulty if movement_record else DifficultyLevel.BEGINNER
+        except SQLAlchemyError as e:
+            print(f"Error retrieving movement difficulty: {e}")
+            return DifficultyLevel.BEGINNER
 
     def get_prs(self):
         prs = {}
@@ -103,7 +142,9 @@ class DataManager:
                     'movement': movement,
                     'weight': log.weight,
                     'reps': log.reps,
-                    'notes': log.notes
+                    'notes': log.notes,
+                    'difficulty': log.difficulty_level.name,
+                    'completed': log.completed_successfully
                 } for log in logs]
 
                 return pd.DataFrame(data)
