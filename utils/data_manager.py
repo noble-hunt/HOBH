@@ -5,6 +5,7 @@ from .achievement_manager import AchievementManager
 from contextlib import contextmanager
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import func
+from .prediction import PRPredictor
 
 class DataManager:
     def __init__(self):
@@ -177,3 +178,27 @@ class DataManager:
     def get_achievements(self):
         """Get all earned achievements."""
         return self.achievement_manager.get_earned_achievements()
+
+    def get_movement_predictions(self, movement):
+        """Get PR predictions and training insights for a movement."""
+        try:
+            with self._session_scope() as session:
+                movement_record = session.query(Movement).filter_by(name=movement).first()
+                if not movement_record:
+                    return None
+
+                history = self.get_movement_history(movement)
+                if history.empty:
+                    return None
+
+                predictor = PRPredictor(history)
+                predictions = predictor.predict_pr()
+                insights = predictor.get_training_insights()
+
+                return {
+                    'predictions': predictions,
+                    'insights': insights
+                }
+        except SQLAlchemyError as e:
+            print(f"Error getting movement predictions: {e}")
+            return None

@@ -200,12 +200,32 @@ def show_progress_tracker():
             cutoff_date = pd.Timestamp.now() - pd.DateOffset(months=months[date_range])
             history = history[history['date'] >= cutoff_date]
 
-        # Display current difficulty level
-        current_difficulty = data_manager.get_movement_difficulty(movement)
-        st.info(f"Current Difficulty Level: {current_difficulty.value}")
+        # Get predictions and insights
+        prediction_data = data_manager.get_movement_predictions(movement)
+
+        # Create columns for current stats and predictions
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # Display current difficulty level
+            current_difficulty = data_manager.get_movement_difficulty(movement)
+            st.info(f"Current Difficulty Level: {current_difficulty.value}")
+
+        with col2:
+            if prediction_data and prediction_data['predictions']:
+                pred = prediction_data['predictions']
+                if pred['prediction'] and pred['prediction'] > pred['current_pr']:
+                    st.success(pred['message'])
+                else:
+                    st.info(pred['message'])
 
         # Create tabs for different visualizations
-        tab1, tab2, tab3 = st.tabs(["Progress Charts", "Training Summary", "Workout Patterns"])
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "Progress Charts", 
+            "Training Summary", 
+            "Workout Patterns",
+            "Training Insights"
+        ])
 
         with tab1:
             # Create and display progress chart
@@ -241,6 +261,13 @@ def show_progress_tracker():
             st.subheader("Workout Patterns")
             heatmap = create_heatmap(history)
             st.plotly_chart(heatmap, use_container_width=True)
+
+        with tab4:
+            st.subheader("Training Insights")
+            if prediction_data and prediction_data['insights']:
+                st.write(prediction_data['insights'])
+            else:
+                st.info("Continue logging workouts to receive personalized training insights!")
 
     else:
         st.info("No data available for this movement yet.")
