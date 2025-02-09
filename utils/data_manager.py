@@ -1,10 +1,16 @@
 import pandas as pd
 from datetime import datetime
-from .models import Session, Movement, WorkoutLog, init_db, DifficultyLevel
+from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
+from .models import (
+    Session, 
+    Movement, 
+    WorkoutLog,  # Explicitly import WorkoutLog
+    init_db, 
+    DifficultyLevel
+)
 from .achievement_manager import AchievementManager
 from contextlib import contextmanager
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import func
 from .prediction import PRPredictor
 
 class DataManager:
@@ -13,7 +19,7 @@ class DataManager:
             "Strict Press", "Push Press", "Clean", "Jerk",
             "Clean and Jerk", "Snatch", "Overhead Squat",
             "Back Squat", "Front Squat", "Deadlift", 
-            "Bench Press", "Sumo Deadlift", "RDL"  # Added new movements
+            "Bench Press", "Sumo Deadlift", "RDL"
         ]
         self.achievement_manager = AchievementManager()
         self._initialize_database()
