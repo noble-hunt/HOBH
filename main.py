@@ -428,7 +428,10 @@ def show_progress_tracker():
                 "6 Months": 6,
                 "1 Year": 12
             }
+            # Convert cutoff_date to pandas Timestamp
             cutoff_date = pd.Timestamp.now() - pd.DateOffset(months=months[date_range])
+            # Ensure history['date'] is in datetime format
+            history['date'] = pd.to_datetime(history['date'])
             history = history[history['date'] >= cutoff_date]
 
         # Get predictions and insights
@@ -481,10 +484,10 @@ def show_progress_tracker():
             # Show recent sessions table
             st.subheader("Recent Sessions")
             history['Status'] = history['completed'].map({1: '✅ Success', 0: '❌ Failed'})
+            display_df = history[['date', 'weight', 'reps', 'difficulty', 'Status', 'notes']].copy()
+            display_df['date'] = display_df['date'].dt.strftime('%Y-%m-%d')  # Format dates for display
             st.dataframe(
-                history[['date', 'weight', 'reps', 'difficulty', 'Status', 'notes']]
-                .sort_values('date', ascending=False)
-                .head(5)
+                display_df.sort_values('date', ascending=False).head(5)
             )
 
         with tab3:

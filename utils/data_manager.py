@@ -260,7 +260,7 @@ class DataManager:
                     .all()
 
                 data = [{
-                    'date': log.date,
+                    'date': pd.Timestamp(log.date),  # Convert to pandas Timestamp
                     'movement': movement,
                     'weight': log.weight,
                     'reps': log.reps,
