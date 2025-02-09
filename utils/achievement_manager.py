@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from .models import Session, Achievement, EarnedAchievement, AchievementType, DifficultyLevel
+from .models import Session, Achievement, EarnedAchievement, AchievementType, DifficultyLevel, WorkoutLog
 from sqlalchemy import func
 from contextlib import contextmanager
 
@@ -25,13 +25,13 @@ class AchievementManager:
         with self._session_scope() as session:
             # Check weight milestone achievements
             self._check_weight_milestone(session, workout_log)
-            
+
             # Check consecutive days achievements
-            self._check_consecutive_days(session)
-            
+            self._check_consecutive_days(session, workout_log.user_id)
+
             # Check movement mastery achievements
             self._check_movement_mastery(session, workout_log)
-            
+
             # Check progression milestones
             self._check_progression_milestone(session, workout_log)
 
@@ -45,7 +45,7 @@ class AchievementManager:
             if workout_log.weight >= achievement.criteria_value:
                 self._award_achievement(session, achievement, workout_log.movement.name)
 
-    def _check_consecutive_days(self, session):
+    def _check_consecutive_days(self, session, user_id):
         """Check and award streak-based achievements."""
         streak_achievements = session.query(Achievement)\
             .filter_by(type=AchievementType.CONSECUTIVE_DAYS)\
@@ -54,7 +54,10 @@ class AchievementManager:
         # Get workout logs for the past 30 days
         thirty_days_ago = datetime.now() - timedelta(days=30)
         workout_dates = session.query(func.date(WorkoutLog.date))\
-            .filter(WorkoutLog.date >= thirty_days_ago)\
+            .filter(
+                WorkoutLog.date >= thirty_days_ago,
+                WorkoutLog.user_id == user_id
+            )\
             .distinct()\
             .order_by(WorkoutLog.date)\
             .all()
@@ -62,7 +65,7 @@ class AchievementManager:
         # Calculate current streak
         current_streak = 0
         today = datetime.now().date()
-        
+
         for i in range(len(workout_dates)):
             if i == 0:
                 current_streak = 1
@@ -121,7 +124,7 @@ class AchievementManager:
                 .join(Achievement)\
                 .order_by(EarnedAchievement.date_earned.desc())\
                 .all()
-            
+
             return [{
                 'name': earned.achievement.name,
                 'description': earned.achievement.description,
