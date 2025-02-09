@@ -149,7 +149,7 @@ def show_social_hub():
 
         try:
             # Show recent activities without user filtering
-            workouts = data_manager.get_recent_logs(limit=10)
+            workouts = data_manager.get_recent_logs(st.session_state.user_id, limit=10)
 
             for workout in workouts:
                 with st.container():
@@ -171,7 +171,15 @@ def show_social_hub():
 
         if st.button("Share"):
             try:
-                data_manager.log_movement(movement, weight, reps, pd.Timestamp.now().date(), notes)
+                # Add user_id parameter and fix the parameter order
+                data_manager.log_movement(
+                    user_id=st.session_state.user_id,
+                    movement=movement,
+                    weight=weight,
+                    reps=reps,
+                    date=datetime.now().date(),
+                    notes=notes
+                )
                 st.success("Workout shared successfully!")
             except Exception as e:
                 st.error(f"Error sharing workout: {str(e)}")

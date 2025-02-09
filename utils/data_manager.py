@@ -47,17 +47,27 @@ class DataManager:
         return self.movements
 
     def log_movement(self, user_id, movement, weight, reps, date, notes="", completed_successfully=1):
-        if movement not in self.movements:
-            raise ValueError("Invalid movement")
+        # Case-insensitive movement validation
+        valid_movements = {m.lower(): m for m in self.movements}
+        movement_lower = movement.lower()
+
+        if movement_lower not in valid_movements:
+            raise ValueError(f"Invalid movement: {movement}. Valid movements are: {', '.join(self.movements)}")
+
+        # Use the correctly cased movement name
+        movement_name = valid_movements[movement_lower]
 
         try:
             with self._session_scope() as session:
-                movement_record = session.query(Movement).filter_by(name=movement).first()
+                movement_record = session.query(Movement).filter(
+                    func.lower(Movement.name) == movement_lower
+                ).first()
+
                 if not movement_record:
                     raise ValueError(f"Movement '{movement}' not found in database")
 
                 workout_log = WorkoutLog(
-                    user_id=user_id,  # Add user_id here
+                    user_id=user_id,
                     date=date,
                     movement_id=movement_record.id,
                     weight=float(weight),
