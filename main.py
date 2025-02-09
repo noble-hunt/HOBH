@@ -357,7 +357,7 @@ def show_log_movement():
                     st.error(f"Error logging movement: {str(e)}")
 
     with tab2:
-        st.subheader("Real-time Form Analysis")
+        st.subheader("Movement Form Analysis")
         col1, col2 = st.columns([3, 1])
 
         with col1:
@@ -371,13 +371,31 @@ def show_log_movement():
             # Initialize movement analyzer
             analyzer = MovementAnalyzer()
 
+            # Input source selection
+            input_source = st.radio(
+                "Select input source",
+                ["Camera", "Upload Video"],
+                horizontal=True
+            )
+
+            # Video upload section
+            video_file = None
+            if input_source == "Upload Video":
+                video_file = st.file_uploader(
+                    "Upload your movement video",
+                    type=["mp4", "mov", "avi"],
+                    help="Upload a video of your movement for analysis. Supported formats: MP4, MOV, AVI"
+                )
+
             # Add help text
             st.markdown("""
             ### How to use:
             1. Select your movement type
-            2. Position yourself so your full body is visible
-            3. Press 'Start Analysis' to begin
-            4. Follow the real-time feedback and suggestions
+            2. Choose input source (camera or video upload)
+            3. If using camera: Position yourself so your full body is visible
+            4. If uploading video: Select a clear video of your movement
+            5. Press 'Start Analysis' to begin
+            6. Follow the real-time feedback and suggestions
 
             The analyzer will provide:
             - Real-time form feedback
@@ -388,13 +406,33 @@ def show_log_movement():
 
         with col2:
             # Start analysis button with clear visual prominence
-            if st.button("Start Analysis", key="start_analysis", use_container_width=True):
+            start_button_disabled = input_source == "Upload Video" and video_file is None
+
+            if st.button(
+                "Start Analysis",
+                key="start_analysis",
+                use_container_width=True,
+                disabled=start_button_disabled
+            ):
                 try:
-                    analyzer.start_analysis(selected_movement)
+                    if input_source == "Upload Video" and video_file is not None:
+                        video_bytes = video_file.read()
+                        analyzer.start_analysis(
+                            selected_movement,
+                            input_source="video",
+                            video_file=video_bytes
+                        )
+                    else:
+                        analyzer.start_analysis(
+                            selected_movement,
+                            input_source="camera"
+                        )
                 except Exception as e:
                     st.error(f"Error starting analysis: {str(e)}")
-                    st.info("Please ensure your camera is connected and accessible.")
-
+                    if input_source == "Camera":
+                        st.info("Please ensure your camera is connected and accessible.")
+                    else:
+                        st.info("Please ensure your video file is valid and try again.")
 
 def show_workout_generator():
     st.header("Workout Generator")

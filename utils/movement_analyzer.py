@@ -3,11 +3,12 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import streamlit as st
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Union
 import anthropic
 import json
 from datetime import datetime
 import os
+from pathlib import Path
 
 class MovementAnalyzer:
     def __init__(self):
@@ -82,8 +83,8 @@ class MovementAnalyzer:
             }
         }
 
-    def start_analysis(self, movement_type: str):
-        """Start real-time movement analysis."""
+    def start_analysis(self, movement_type: str, input_source: str = "camera", video_file: Union[None, bytes] = None):
+        """Start movement analysis from camera or video file."""
         st.title(f"Real-time {movement_type} Analysis")
 
         # Create placeholders
@@ -91,10 +92,9 @@ class MovementAnalyzer:
         feedback_placeholder = st.empty()
         form_score_placeholder = st.empty()
 
-        # Add movement-specific guidelines
+        # Add movement-specific guidelines in sidebar
         if movement_type in self.movement_criteria:
             st.sidebar.subheader("Movement Guidelines")
-
             for phase, details in self.movement_criteria[movement_type].items():
                 st.sidebar.markdown(f"**{phase}:**")
                 st.sidebar.markdown(f"- {details['description']}")
@@ -103,44 +103,76 @@ class MovementAnalyzer:
                     for joint, (min_angle, max_angle) in details['angles'].items():
                         st.sidebar.markdown(f"- {joint}: {min_angle}° - {max_angle}°")
 
-        # Initialize video capture
-        video_capture = cv2.VideoCapture(0)
-
         try:
-            while True:
-                ret, frame = video_capture.read()
-                if not ret:
-                    break
+            # Initialize video source
+            if input_source == "camera":
+                cap = cv2.VideoCapture(0)
+                if not cap.isOpened():
+                    st.error("Error: Could not access camera. Please check your camera connection.")
+                    return
+            else:
+                # Save uploaded video to temporary file
+                if video_file is None:
+                    st.error("No video file provided")
+                    return
 
-                # Process frame
-                processed_frame, feedback = self.process_frame(frame, movement_type)
+                temp_file = Path("temp_video.mp4")
+                temp_file.write_bytes(video_file)
+                cap = cv2.VideoCapture(str(temp_file))
 
-                # Update video feed
-                video_placeholder.image(
-                    cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB),
-                    channels="RGB",
-                    use_column_width=True
-                )
+                if not cap.isOpened():
+                    st.error("Error: Could not open video file")
+                    temp_file.unlink()  # Clean up temp file
+                    return
 
-                # Update feedback
-                suggestions_list = '\n'.join([f"- {s}" for s in feedback['suggestions']])
-                feedback_text = f"""
-                **Current Phase:** {feedback['phase']}
+            try:
+                while True:
+                    ret, frame = cap.read()
+                    if not ret:
+                        if input_source != "camera":
+                            st.info("Video analysis complete")
+                        break
 
-                **Posture Assessment:** {feedback['posture']}
+                    # Process frame
+                    processed_frame, feedback = self.process_frame(frame, movement_type)
 
-                **Suggestions:**
-                {suggestions_list}
-                """
-                feedback_placeholder.markdown(feedback_text)
+                    # Update video feed
+                    video_placeholder.image(
+                        cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB),
+                        channels="RGB",
+                        use_column_width=True
+                    )
 
-                # Update form score with progress bar
-                form_score_placeholder.progress(feedback['confidence'])
+                    # Update feedback
+                    suggestions_list = '\n'.join([f"- {s}" for s in feedback['suggestions']])
+                    feedback_text = f"""
+                    **Current Phase:** {feedback['phase']}
+
+                    **Posture Assessment:** {feedback['posture']}
+
+                    **Suggestions:**
+                    {suggestions_list}
+                    """
+                    feedback_placeholder.markdown(feedback_text)
+
+                    # Update form score
+                    form_score_placeholder.progress(feedback['confidence'])
+
+                    # Add delay for video playback
+                    if input_source != "camera":
+                        cv2.waitKey(30)
+
+            finally:
+                cap.release()
+                if input_source != "camera" and 'temp_file' in locals():
+                    temp_file.unlink()  # Clean up temp file
 
         except Exception as e:
             st.error(f"Error during analysis: {str(e)}")
-        finally:
-            video_capture.release()
+            if 'cap' in locals():
+                cap.release()
+            if input_source != "camera" and 'temp_file' in locals():
+                temp_file.unlink()  # Clean up temp file
 
     def process_frame(self, frame: np.ndarray, movement_type: str) -> Tuple[np.ndarray, Dict]:
         """
