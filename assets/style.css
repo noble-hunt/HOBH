@@ -5,9 +5,15 @@
 
 /* Logo styling */
 .app-logo {
-    max-width: 200px;
+    max-width: 250px;
     height: auto;
-    margin: 1rem 0;
+    margin: 0.5rem 0;
+    image-rendering: -webkit-optimize-contrast;  /* Improve image sharpness */
+    image-rendering: crisp-edges;
+}
+
+[data-testid="stImage"] {
+    margin-bottom: 0.5rem !important;
 }
 
 /* Quote container styling */

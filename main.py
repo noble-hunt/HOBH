@@ -99,12 +99,18 @@ def main():
         show_login_page()
         return
 
-    # Display logo instead of text title
-    logo_path = "attached_assets/BlackBack.png"
-    if Path(logo_path).exists():
-        st.image(logo_path, use_container_width=False, width=200)
-    else:
-        st.title("🏋️‍♂️ Olympic Weightlifting Tracker")
+    # Create container for logo with custom spacing
+    logo_container = st.container()
+    with logo_container:
+        # Display logo instead of text title
+        logo_path = "attached_assets/BlackBack.png"
+        if Path(logo_path).exists():
+            st.image(logo_path, use_container_width=False, width=250)
+        else:
+            st.title("🏋️‍♂️ Olympic Weightlifting Tracker")
+
+        # Add minimal spacing after logo
+        st.markdown('<div style="margin-bottom: 0.5rem;"></div>', unsafe_allow_html=True)
 
     # Sidebar for navigation
     page = st.sidebar.selectbox(
