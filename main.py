@@ -3,6 +3,7 @@ import pandas as pd
 from utils.data_manager import DataManager
 from utils.openai_helper import WorkoutGenerator
 from utils.visualization import create_progress_chart
+from utils.social_manager import SocialManager
 import plotly.express as px
 
 st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
@@ -11,26 +12,126 @@ st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
 with open('assets/style.css') as f:
     st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
-# Initialize data manager
+# Initialize managers
 data_manager = DataManager()
+social_manager = SocialManager()
+
+# Session state for user management
+if 'user_id' not in st.session_state:
+    st.session_state.user_id = None
 
 def main():
     st.title("🏋️‍♂️ Olympic Weightlifting Tracker")
 
-    # Sidebar for navigation
-    page = st.sidebar.selectbox(
-        "Navigation",
-        ["Home", "Log Movement", "Generate Workout", "Progress Tracker"]
-    )
+    # User authentication placeholder
+    if st.session_state.user_id is None:
+        show_login()
+    else:
+        # Sidebar for navigation
+        page = st.sidebar.selectbox(
+            "Navigation",
+            ["Home", "Log Movement", "Generate Workout", "Progress Tracker", "Social Hub"]
+        )
 
-    if page == "Home":
-        show_home()
-    elif page == "Log Movement":
-        show_log_movement()
-    elif page == "Generate Workout":
-        show_workout_generator()
-    elif page == "Progress Tracker":
-        show_progress_tracker()
+        if page == "Home":
+            show_home()
+        elif page == "Log Movement":
+            show_log_movement()
+        elif page == "Generate Workout":
+            show_workout_generator()
+        elif page == "Progress Tracker":
+            show_progress_tracker()
+        elif page == "Social Hub":
+            show_social_hub()
+
+def show_login():
+    st.header("Welcome! Please Log In or Sign Up")
+
+    with st.form("login_form"):
+        username = st.text_input("Username")
+        action = st.form_submit_button("Login/Signup")
+
+        if action and username:
+            try:
+                # Simple login/signup logic (for demo purposes)
+                user_id = social_manager.create_profile(username)
+                st.session_state.user_id = user_id
+                st.success(f"Welcome, {username}!")
+                st.experimental_rerun()
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+
+def show_social_hub():
+    st.header("🤝 Social Hub")
+
+    # Get user profile
+    try:
+        profile = social_manager.get_user_profile(st.session_state.user_id)
+
+        # Profile section
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Following", profile["following_count"])
+        with col2:
+            st.metric("Followers", profile["followers_count"])
+        with col3:
+            st.metric("Shared Workouts", profile["shared_workouts_count"])
+
+        st.markdown("---")
+
+        # Tabs for different social features
+        tab1, tab2, tab3 = st.tabs(["Feed", "Share Workout", "Find Athletes"])
+
+        with tab1:
+            st.subheader("Recent Activity")
+            feed = social_manager.get_user_feed(st.session_state.user_id)
+
+            for shared in feed:
+                with st.container():
+                    st.markdown(f"**{shared.user.username}** shared a workout:")
+                    st.markdown(f"Movement: {shared.workout_log.movement.name}")
+                    st.markdown(f"Weight: {shared.workout_log.weight}kg × {shared.workout_log.reps} reps")
+                    if shared.caption:
+                        st.markdown(f"_{shared.caption}_")
+                    st.button(f"❤️ {shared.likes}", key=f"like_{shared.id}")
+                    st.markdown("---")
+
+        with tab2:
+            st.subheader("Share Your Workout")
+            recent_logs = data_manager.get_recent_logs(st.session_state.user_id, limit=5)
+
+            if recent_logs:
+                selected_log = st.selectbox(
+                    "Select workout to share",
+                    recent_logs,
+                    format_func=lambda x: f"{x.movement.name} - {x.weight}kg × {x.reps} reps"
+                )
+
+                caption = st.text_area("Add a caption")
+
+                if st.button("Share"):
+                    try:
+                        social_manager.share_workout(
+                            st.session_state.user_id,
+                            selected_log.id,
+                            caption
+                        )
+                        st.success("Workout shared successfully!")
+                    except Exception as e:
+                        st.error(f"Error sharing workout: {str(e)}")
+            else:
+                st.info("Log some workouts first to share them!")
+
+        with tab3:
+            st.subheader("Find Athletes to Follow")
+            search_term = st.text_input("Search by username")
+
+            if search_term:
+                # Implement user search functionality
+                st.info("User search feature coming soon!")
+
+    except Exception as e:
+        st.error(f"Error loading social features: {str(e)}")
 
 def show_home():
     st.header("Welcome to Your Weightlifting Journey")

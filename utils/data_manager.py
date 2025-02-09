@@ -154,3 +154,17 @@ class DataManager:
         except SQLAlchemyError as e:
             print(f"Error retrieving movement history: {e}")
             return pd.DataFrame()
+
+    def get_recent_logs(self, user_id, limit=5):
+        """Get recent workout logs for a specific user."""
+        try:
+            with self._session_scope() as session:
+                logs = session.query(WorkoutLog)\
+                    .filter_by(user_id=user_id)\
+                    .order_by(WorkoutLog.date.desc())\
+                    .limit(limit)\
+                    .all()
+                return logs
+        except SQLAlchemyError as e:
+            print(f"Error retrieving recent logs: {e}")
+            return []
