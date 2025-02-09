@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, Float, String, Date, ForeignKey, Table, DateTime, text
+from sqlalchemy import create_engine, Column, Integer, Float, String, Date, ForeignKey, Table, DateTime, text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.exc import ProgrammingError, OperationalError
@@ -9,6 +9,35 @@ from datetime import datetime
 import time
 
 Base = declarative_base()
+
+# Achievement Types Enum
+class AchievementType(str, enum.Enum):
+    WEIGHT_MILESTONE = 'WEIGHT_MILESTONE'
+    CONSECUTIVE_DAYS = 'CONSECUTIVE_DAYS'
+    MOVEMENT_MASTERY = 'MOVEMENT_MASTERY'
+    PROGRESSION_MILESTONE = 'PROGRESSION_MILESTONE'
+
+class Achievement(Base):
+    __tablename__ = 'achievements'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=False)
+    type = Column(String, nullable=False)
+    criteria_value = Column(Float)  # e.g., weight threshold or days streak
+    icon_name = Column(String)  # Name of the achievement icon
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class EarnedAchievement(Base):
+    __tablename__ = 'earned_achievements'
+
+    id = Column(Integer, primary_key=True)
+    achievement_id = Column(Integer, ForeignKey('achievements.id'), nullable=False)
+    date_earned = Column(DateTime, default=datetime.utcnow)
+    movement_name = Column(String)  # Optional: specific movement this was earned for
+
+    # Relationship
+    achievement = relationship('Achievement')
 
 # User following relationship table
 following = Table(
@@ -115,8 +144,47 @@ def init_db():
 
     for attempt in range(max_retries):
         try:
-            Base.metadata.drop_all(engine)
             Base.metadata.create_all(engine)
+
+            # Initialize default achievements
+            session = Session()
+
+            # Check if achievements already exist
+            if session.query(Achievement).count() == 0:
+                default_achievements = [
+                    Achievement(
+                        name="Weight Master",
+                        description="Lift 100kg or more in any movement",
+                        type=AchievementType.WEIGHT_MILESTONE,
+                        criteria_value=100.0,
+                        icon_name="weight_master"
+                    ),
+                    Achievement(
+                        name="Consistency King",
+                        description="Log workouts for 7 consecutive days",
+                        type=AchievementType.CONSECUTIVE_DAYS,
+                        criteria_value=7,
+                        icon_name="consistency_king"
+                    ),
+                    Achievement(
+                        name="Movement Expert",
+                        description="Reach ADVANCED level in any movement",
+                        type=AchievementType.MOVEMENT_MASTERY,
+                        criteria_value=0,
+                        icon_name="movement_expert"
+                    ),
+                    Achievement(
+                        name="Elite Status",
+                        description="Reach ELITE level in any movement",
+                        type=AchievementType.PROGRESSION_MILESTONE,
+                        criteria_value=0,
+                        icon_name="elite_status"
+                    )
+                ]
+                session.add_all(default_achievements)
+                session.commit()
+
+            session.close()
             break
         except (ProgrammingError, OperationalError) as e:
             if attempt == max_retries - 1:

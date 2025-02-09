@@ -1,6 +1,7 @@
 import pandas as pd
 from datetime import datetime
 from .models import Session, Movement, WorkoutLog, init_db, DifficultyLevel
+from .achievement_manager import AchievementManager
 from contextlib import contextmanager
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import func
@@ -12,6 +13,7 @@ class DataManager:
             "Clean and Jerk", "Snatch", "Overhead Squat",
             "Back Squat", "Front Squat"
         ]
+        self.achievement_manager = AchievementManager()
         self._initialize_database()
 
     @contextmanager
@@ -65,6 +67,10 @@ class DataManager:
 
                 # Update progression after logging
                 self._update_movement_progression(session, movement_record)
+
+                # Check for achievements
+                self.achievement_manager.check_and_award_achievements(workout_log)
+
             return True
         except SQLAlchemyError as e:
             raise Exception(f"Database error while logging movement: {str(e)}")
@@ -168,3 +174,6 @@ class DataManager:
         except SQLAlchemyError as e:
             print(f"Error retrieving recent logs: {e}")
             return []
+    def get_achievements(self):
+        """Get all earned achievements."""
+        return self.achievement_manager.get_earned_achievements()

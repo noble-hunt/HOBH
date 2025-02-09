@@ -22,7 +22,7 @@ def main():
     # Sidebar for navigation
     page = st.sidebar.selectbox(
         "Navigation",
-        ["Home", "Log Movement", "Generate Workout", "Progress Tracker", "Social Hub"]
+        ["Home", "Log Movement", "Generate Workout", "Progress Tracker", "Social Hub", "Achievements"]
     )
 
     if page == "Home":
@@ -35,6 +35,8 @@ def main():
         show_progress_tracker()
     elif page == "Social Hub":
         show_social_hub()
+    elif page == "Achievements":
+        show_achievements()
 
 def show_social_hub():
     st.header("🤝 Social Hub")
@@ -194,6 +196,45 @@ def show_progress_tracker():
         )
     else:
         st.info("No data available for this movement yet.")
+
+def show_achievements():
+    st.header("🏆 Achievements & Badges")
+
+    achievements = data_manager.get_achievements()
+
+    if achievements:
+        # Create a grid layout for achievements
+        cols = st.columns(3)
+
+        for idx, achievement in enumerate(achievements):
+            col = cols[idx % 3]
+            with col:
+                # Create achievement card
+                st.markdown(
+                    f"""
+                    <div class="movement-status-card" style="background-color: #FFD700;">
+                        <h5 style="margin: 0;">🏅 {achievement['name']}</h5>
+                        <p style="margin: 5px 0;">{achievement['description']}</p>
+                        <p style="margin: 0;font-size: 0.8em;">
+                            Earned: {achievement['date_earned'].strftime('%Y-%m-%d')}
+                            {f"<br>Movement: {achievement['movement_name']}" if achievement['movement_name'] else ""}
+                        </p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+    else:
+        st.info("No achievements earned yet. Keep training to unlock achievements!")
+
+        # Show available achievements
+        st.subheader("Available Achievements")
+        with st.expander("See what you can earn"):
+            st.markdown("""
+            - 🏋️ **Weight Master**: Lift 100kg or more in any movement
+            - 📅 **Consistency King**: Log workouts for 7 consecutive days
+            - 🎯 **Movement Expert**: Reach ADVANCED level in any movement
+            - 👑 **Elite Status**: Reach ELITE level in any movement
+            """)
 
 if __name__ == "__main__":
     main()
