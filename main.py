@@ -197,7 +197,7 @@ def show_home():
         user_context = {}
         if st.session_state.user_id:
             recent_logs = data_manager.get_recent_logs(st.session_state.user_id)
-            if recent_logs:
+            if recent_logs and recent_logs[0].movement:
                 user_context = {
                     'target_movement': recent_logs[0].movement.name if recent_logs else None,
                     'current_streak': len(recent_logs)

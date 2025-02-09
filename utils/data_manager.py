@@ -236,12 +236,17 @@ class DataManager:
     def get_recent_logs(self, user_id, limit=5):
         """Get recent workout logs for a specific user."""
         try:
+            from sqlalchemy.orm import joinedload
             with self._session_scope() as session:
                 logs = session.query(WorkoutLog)\
+                    .options(joinedload(WorkoutLog.movement))\
                     .filter_by(user_id=user_id)\
                     .order_by(WorkoutLog.date.desc())\
                     .limit(limit)\
                     .all()
+                # Materialize the movement data while session is still open
+                for log in logs:
+                    _ = log.movement.name
                 return logs
         except SQLAlchemyError as e:
             print(f"Error retrieving recent logs: {e}")
