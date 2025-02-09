@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, Float, String, Date, ForeignKey, Enum
+from sqlalchemy import create_engine, Column, Integer, Float, String, Date, ForeignKey, Enum, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import ProgrammingError
@@ -43,17 +43,18 @@ Session = sessionmaker(bind=engine)
 def init_db():
     try:
         # Create enum type first
-        with engine.connect() as connection:
-            connection.execute("""
-                DO $$ 
-                BEGIN
-                    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'difficultylevel') THEN
-                        CREATE TYPE difficultylevel AS ENUM ('BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'ELITE');
-                    END IF;
-                END
-                $$;
-            """)
-            connection.commit()
+        create_enum_sql = text("""
+            DO $$ 
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'difficultylevel') THEN
+                    CREATE TYPE difficultylevel AS ENUM ('BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'ELITE');
+                END IF;
+            END
+            $$;
+        """)
+
+        with engine.begin() as conn:
+            conn.execute(create_enum_sql)
 
         # Create tables
         Base.metadata.create_all(engine, checkfirst=True)
