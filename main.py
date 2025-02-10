@@ -66,18 +66,29 @@ def navigate_to(page):
 
 def login_user():
     st.header("Login")
+
+    # Add debug logging
+    print("Debug: Starting login process")
+
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         submitted = st.form_submit_button("Login")
 
         if submitted:
+            print(f"Debug: Form submitted for user: {username}")
             user_id, error = auth_manager.authenticate_user(username, password)
+
             if user_id:
-                st.session_state.user_id = user_id
-                st.session_state.username = username
+                print(f"Debug: Authentication successful for user_id: {user_id}")
+                # Update session state
+                st.session_state['user_id'] = user_id
+                st.session_state['username'] = username
+                # Use st.rerun() to ensure state changes are applied immediately
                 st.success("Successfully logged in!")
+                st.rerun()
             else:
+                print(f"Debug: Authentication failed - {error}")
                 st.error(error)
 
 def signup_user():
@@ -809,62 +820,53 @@ def show_profile():
 
         # Get current avatar settings
         current_settings = avatar_manager.get_avatar_settings(st.session_state.user_id)
-        available_options = avatar_manager.get_available_options()
 
-        # Avatar customization form
-        with st.form("avatar_customization"):
-            selected_style = st.selectbox(
-                "Avatar Style",
-                options=available_options['styles'],
-                index=0
-            )
+        # Avatar style selection
+        st.subheader("Style")
+        style = st.selectbox(
+            "Choose your avatar style",
+            ["Default", "Pixel", "Anime", "Comic"],
+            index=0
+        )
 
-            selected_background = st.color_picker(
-                "`Background Color",
-                value="#F0F2F6"
-            )
+        # Background selection
+        st.subheader("Background")
+        background = st.selectbox(
+            "Choose your background",
+            ["None", "Gradient", "Pattern", "Custom"],
+            index=0
+        )
 
-            # Feature selection
-            st.subheader("Features")
-            features = {}
-            for feature, options in available_options['features'].items():
-                features[feature] = st.selectbox(
-                    feature.replace('_', ' ').title(),
-                    options=options,
-                    index=0
-                )
+        # Features customization
+        st.subheader("Features")
+        feature_cols = st.columns(2)
+        with feature_cols[0]:
+            hair_style = st.selectbox("Hair Style", ["Short", "Long", "Curly", "Wavy"])
+            eye_color = st.selectbox("Eye Color", ["Brown", "Blue", "Green", "Hazel"])
+        with feature_cols[1]:
+            skin_tone = st.selectbox("Skin Tone", ["Light", "Medium", "Dark", "Custom"])
+            accessories = st.multiselect("Accessories", ["Glasses", "Hat", "Earrings"])
 
             if st.form_submit_button("Update Avatar"):
                 success, message = avatar_manager.update_avatar(
                     st.session_state.user_id,
-                    selected_style,
-                    selected_background,
-                    features
+                    style,
+                    background,
+                    {
+                        "hair_style": hair_style,
+                        "eye_color": eye_color,
+                        "skin_tone": skin_tone,
+                        "accessories": accessories
+                    }
                 )
                 if success:
-                    st.success("Avatar updated successfully!")
+                    st.success(message)
                 else:
                     st.error(message)
 
-        # Display current settings and avatar preview
-        if current_settings:
-            #            # Create columns for settings and preview
-            col1, col2 = st.columns([1, 1])
-
-            with col1:
-                st.subheader("Current Settings")
-                st.json(current_settings)
-
-            with col2:
-                st.subheader("Avatar Preview")
-                try:
-                    avatar_svg = avatar_manager.generate_avatar_svg(current_settings)
-                    if avatar_svg:
-                        st.image(avatar_svg, width=200)
-                    else:
-                        st.warning("Avatar preview not available")
-                except Exception as e:
-                    st.error(f"Error displaying avatar: {str(e)}")
+            if current_settings:
+                st.subheader("Current Avatar")
+                st.image(avatar_manager.get_avatar_image(st.session_state.user_id))
 
     with tab3:
         st.subheader("🏃‍♂️ Wearable Devices")
