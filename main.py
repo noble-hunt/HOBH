@@ -413,7 +413,7 @@ def show_log_movement():
     tab1, tab2 = st.tabs(["Log Movement", "Form Analysis"])
 
     with tab1:
-        movements = data_manager.get_movements()
+        movements = data_manager.get_all_movements()
 
         with st.form("log_movement"):
             movement = st.selectbox("Select Movement", movements)
@@ -555,7 +555,7 @@ def show_log_movement():
 def show_workout_generator():
     st.header("Workout Generator")
 
-    movements = data_manager.get_movements()
+    movements = data_manager.get_all_movements()
     selected_movements = st.multiselect(
         "Select movements to focus on",
         movements
