@@ -368,3 +368,10 @@ class WearableManager:
         except requests.exceptions.RequestException as e:
             print(f"Error syncing Garmin data: {str(e)}")
             return False
+
+    def get_user_devices(self, user_id: int) -> List[WearableDevice]:
+        """Get all wearable devices for a specific user."""
+        return self.session.query(WearableDevice)\
+            .filter(WearableDevice.user_id == user_id)\
+            .filter(WearableDevice.is_active == True)\
+            .all()
