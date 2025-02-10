@@ -622,9 +622,54 @@ def show_progress_tracker():
         st.info("No data available for this movement yet.")
 
 def show_achievements():
-    st.header("🏆 Achievements & Badges")
+    st.header("🏆 Achievements & Progress")
 
+    # Initialize gamification manager for progress tracking
+    engine = create_engine(os.environ['DATABASE_URL'])
+    with Session(engine) as session:
+        gamification_mgr = GamificationManager(session)
+        progress = gamification_mgr.get_user_progress(st.session_state.user_id)
+
+        # Create level progress display
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            current_level = progress['current_level']
+            st.markdown(f"""
+                <div style='padding: 1rem; background-color: #f0f2f6; border-radius: 10px;'>
+                    <h3 style='margin: 0;'>{current_level.title}</h3>
+                    <p style='margin: 0;'>Level {current_level.level}</p>
+                    <div style='margin: 10px 0;'>
+                        <div style='
+                            background-color: #e1e4e8;
+                            border-radius: 5px;
+                            height: 20px;
+                        '>
+                            <div style='
+                                width: {progress['progress_to_next']}%;
+                                background-color: #4CAF50;
+                                height: 100%;
+                                border-radius: 5px;
+                                transition: width 0.5s ease-in-out;
+                            '></div>
+                        </div>
+                    </div>
+                    <p style='margin: 0;'>Total XP: {progress['total_xp']:,}</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with col2:
+            if progress['next_level']:
+                st.markdown(f"""
+                    <div style='padding: 1rem; background-color: #f0f2f6; border-radius: 10px;'>
+                        <h4 style='margin: 0;'>Next Level</h4>
+                        <p style='margin: 0;'>{progress['next_level'].title}</p>
+                        <p style='margin: 0;'>{progress['progress_to_next']}% Complete</p>
+                    </div>
+                """, unsafe_allow_html=True)
+
+    # Get achievements
     achievements = data_manager.get_achievements()
+    st.subheader("🎖️ Earned Achievements")
 
     if achievements:
         # Create a grid layout for achievements
@@ -650,15 +695,15 @@ def show_achievements():
     else:
         st.info("No achievements earned yet. Keep training to unlock achievements!")
 
-        # Show available achievements
-        st.subheader("Available Achievements")
-        with st.expander("See what you can earn"):
-            st.markdown("""
-            - 🏋️ **Weight Master**: Lift 100kg or more in any movement
-            - 📅 **Consistency King**: Log workouts for 7 consecutive days
-            - 🎯 **Movement Expert**: Reach ADVANCED level in any movement
-            - 👑 **Elite Status**: Reach ELITE level in any movement
-            """)
+    # Show available achievements
+    st.subheader("🎯 Available Achievements")
+    st.markdown("""
+        Keep training to unlock these achievements:
+        - 🏋️ **Weight Master**: Lift 100kg or more in any movement
+        - 📅 **Consistency King**: Log workouts for 7 consecutive days
+        - 🎯 **Movement Expert**: Reach ADVANCED level in any movement
+        - 👑 **Elite Status**: Reach ELITE level in any movement
+    """)
 
 def show_profile():
     st.header("🎯 Athlete Profile")
@@ -668,9 +713,8 @@ def show_profile():
         return
 
     # Create tabs for different profile sections
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "Profile Info",
-        "Progress & Achievements",  # New tab
         "Avatar Customization",
         "Wearable Devices",
         "Data Export"
@@ -688,88 +732,6 @@ def show_profile():
                 st.success("Display name updated successfully!")
 
     with tab2:
-        st.subheader("🎮 Training Progress")
-
-        # Initialize gamification manager
-        engine = create_engine(os.environ['DATABASE_URL'])
-        with Session(engine) as session:
-            gamification_mgr = GamificationManager(session)
-            progress = gamification_mgr.get_user_progress(st.session_state.user_id)
-
-            # Create level progress display
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                current_level = progress['current_level']
-                st.markdown(f"""
-                    <div style='padding: 1rem; background-color: #f0f2f6; border-radius: 10px;'>
-                        <h3 style='margin: 0;'>{current_level.title}</h3>
-                        <p style='margin: 0;'>Level {current_level.level}</p>
-                        <div style='margin: 10px 0;'>
-                            <div style='
-                                background-color: #e1e4e8;
-                                border-radius: 5px;
-                                height: 20px;
-                            '>
-                                <div style='
-                                    width: {progress['progress_to_next']}%;
-                                    background-color: #4CAF50;
-                                    height: 100%;
-                                    border-radius: 5px;
-                                    transition: width 0.5s ease-in-out;
-                                '></div>
-                            </div>
-                        </div>
-                        <p style='margin: 0;'>Total XP: {progress['total_xp']:,}</p>
-                    </div>
-                """, unsafe_allow_html=True)
-
-            with col2:
-                if progress['next_level']:
-                    st.markdown(f"""
-                        <div style='padding: 1rem; background-color: #f0f2f6; border-radius: 10px;'>
-                            <h4 style='margin: 0;'>Next Level</h4>
-                            <p style='margin: 0;'>{progress['next_level'].title}</p>
-                            <p style='margin: 0;'>{progress['progress_to_next']}% Complete</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-            # Show recent achievements
-            st.subheader("🏆 Recent Achievements")
-            recent_achievements = progress['recent_achievements']
-            if recent_achievements:
-                cols = st.columns(3)
-                for idx, achievement in enumerate(recent_achievements):
-                    with cols[idx % 3]:
-                        st.markdown(f"""
-                            <div style='
-                                padding: 1rem;
-                                background-color: #FFD700;
-                                border-radius: 10px;
-                                margin: 0.5rem 0;
-                            '>
-                                <h5 style='margin: 0;'>🏅 {achievement['name']}</h5>
-                                <p style='margin: 5px 0;'>{achievement['description']}</p>
-                                <p style='margin: 0;font-size: 0.8em;'>
-                                    Earned: {achievement['date_earned'].strftime('%Y-%m-%d')}
-                                    {f"<br>Movement: {achievement['movement_name']}"
-                                      if achievement['movement_name'] else ""}
-                                </p>
-                            </div>
-                        """, unsafe_allow_html=True)
-            else:
-                st.info("Complete workouts to earn achievements!")
-
-            # Show available achievements
-            with st.expander("Available Achievements"):
-                st.markdown("""
-                    Keep training to unlock these achievements:
-                    - 🏋️ **Weight Master**: Lift 100kg or more in any movement
-                    - 📅 **Consistency King**: Log workouts for 7 consecutive days
-                    - 🎯 **Movement Expert**: Reach ADVANCED level in any movement
-                    - 👑 **Elite Status**: Reach ELITE level in any movement
-                """)
-
-    with tab3:
         st.subheader("Customize Your Avatar")
 
         # Get current avatar settings
@@ -832,7 +794,7 @@ def show_profile():
                 except Exception as e:
                     st.error(f"Error displaying avatar: {str(e)}")
 
-    with tab4:
+    with tab3:
         st.subheader("🏃‍♂️ Wearable Devices")
 
         # Initialize wearable manager with PostgreSQL connection
@@ -868,7 +830,7 @@ def show_profile():
                 wizard = WearableWizard()
                 wizard.render_wizard()
 
-    with tab5:
+    with tab4:
         st.subheader("🔄 Export Health Data")
 
         # Initialize export manager
