@@ -51,10 +51,11 @@ if 'current_page' not in st.session_state:
     st.session_state.current_page = "Home"
 
 def toggle_nav():
+    """Toggle navigation menu visibility"""
     st.session_state.show_nav = not st.session_state.show_nav
-    st.rerun()
 
 def navigate_to(page):
+    """Navigate to a specific page"""
     if page == "Logout":
         st.session_state.user_id = None
         st.session_state.username = None
@@ -62,7 +63,6 @@ def navigate_to(page):
     else:
         st.session_state.current_page = page
     st.session_state.show_nav = False
-    st.rerun()
 
 def login_user():
     st.header("Login")
@@ -77,7 +77,7 @@ def login_user():
                 st.session_state.user_id = user_id
                 st.session_state.username = username
                 st.success("Successfully logged in!")
-                st.rerun()
+                st.experimental_rerun() #Using experimental_rerun instead of rerun
             else:
                 st.error(error)
 
@@ -104,7 +104,7 @@ def signup_user():
                 st.session_state.user_id = user_id
                 st.session_state.username = username
                 st.success("Account created successfully!")
-                st.rerun()
+                st.experimental_rerun() #Using experimental_rerun instead of rerun
             else:
                 st.error(error)
 
@@ -161,6 +161,7 @@ def main():
         show_achievements()
     elif st.session_state.current_page == "Profile":
         show_profile()
+
 
 
 def show_social_hub():
@@ -784,7 +785,7 @@ def show_profile():
                 )
                 if success:
                     st.success("Avatar updated successfully!")
-                    st.rerun()
+                    st.experimental_rerun() #Using experimental_rerun instead of rerun
                 else:
                     st.error(message)
 
