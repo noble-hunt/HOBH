@@ -30,10 +30,24 @@ class DataManager:
     def __init__(self):
         """Initialize the DataManager with movement list and required components."""
         self.movements = [
+            # Olympic Lifts
             "Strict Press", "Push Press", "Clean", "Jerk",
             "Clean and Jerk", "Snatch", "Overhead Squat",
             "Back Squat", "Front Squat", "Deadlift", 
-            "Bench Press", "Sumo Deadlift", "RDL"
+            "Bench Press", "Sumo Deadlift", "RDL",
+
+            # Bodyweight Movements
+            "Burpees", "Pull-ups", "Toes To Bar",
+            "Handstand Push-ups", "Push-ups", "Air Squats",
+            "Bodyweight Lunges",
+
+            # Dumbbell/Kettlebell Movements
+            "KB Swings", "DB Snatches", "DB Clean & Jerks",
+            "DB Thrusters", "Barbell Thrusters",
+
+            # Cardio Equipment
+            "Row Calories", "Bike Erg Calories",
+            "Ski Erg Calories", "Echo Bike Calories"
         ]
         try:
             print("Initializing DataManager")
