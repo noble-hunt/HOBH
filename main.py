@@ -47,6 +47,8 @@ if 'quote_date' not in st.session_state:
     st.session_state.quote_date = None
 if 'nav_action' not in st.session_state:
     st.session_state.nav_action = None
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = "Home"
 
 def handle_nav_action():
     if st.session_state.nav_action:
@@ -60,9 +62,9 @@ def handle_nav_action():
             st.rerun()
         else:
             st.session_state.current_page = action
-            st.rerun()  # Added rerun to refresh the page after navigation
+            st.rerun()
 
-# Navigation menu JavaScript with proper Streamlit event handling
+# Navigation menu JavaScript
 nav_menu_js = """
 <script>
 function toggleNavMenu(event) {
@@ -180,19 +182,15 @@ def main():
     # Handle navigation actions first
     handle_nav_action()
 
-    # Show login button if user is not logged in
+    # Show login page if user is not logged in
     if not st.session_state.user_id:
         show_login_page()
         return
 
-    # Initialize session state for navigation
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = "Home"
-
-    # Create container for logo with custom spacing
+    # Create container for logo
     logo_container = st.container()
     with logo_container:
-        # Display logo instead of text title
+        # Display logo
         logo_path = "attached_assets/BlackBack.png"
         if Path(logo_path).exists():
             st.image(logo_path, use_container_width=False, width=250)
@@ -202,7 +200,7 @@ def main():
         # Add minimal spacing after logo
         st.markdown('<div style="margin-bottom: 0.5rem;"></div>', unsafe_allow_html=True)
 
-    # Add a debug container for navigation state
+    # Add debug container for navigation state
     with st.container():
         st.markdown(
             f"""
@@ -860,7 +858,7 @@ def show_profile():
 
         # Display current settings and avatar preview
         if current_settings:
-            # Create columns for settings and preview
+            #            # Create columns for settings and preview
             col1, col2 = st.columns([1, 1])
 
             with col1:
