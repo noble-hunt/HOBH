@@ -18,7 +18,7 @@ import requests
 from urllib.parse import urlencode
 from utils.wearable_wizard import WearableWizard
 from utils.gamification import GamificationManager
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from utils.models import WearableDevice
 from utils.export_manager import HealthDataExporter
@@ -45,85 +45,23 @@ if 'daily_quote' not in st.session_state:
     st.session_state.daily_quote = None
 if 'quote_date' not in st.session_state:
     st.session_state.quote_date = None
-if 'nav_action' not in st.session_state:
-    st.session_state.nav_action = None
+if 'show_nav' not in st.session_state:
+    st.session_state.show_nav = False
 if 'current_page' not in st.session_state:
     st.session_state.current_page = "Home"
 
-def handle_nav_action():
-    if st.session_state.nav_action:
-        action = st.session_state.nav_action
-        st.session_state.nav_action = None  # Clear the action
+def toggle_nav():
+    st.session_state.show_nav = not st.session_state.show_nav
 
-        if action == 'Logout':
-            st.session_state.user_id = None
-            st.session_state.username = None
-            st.session_state.current_page = "Home"
-            st.rerun()
-        else:
-            st.session_state.current_page = action
-            st.rerun()
-
-# Navigation menu JavaScript
-nav_menu_js = """
-<script>
-function toggleNavMenu(event) {
-    event.stopPropagation();  // Prevent event from bubbling up
-    const menu = document.getElementById('navMenu');
-    menu.classList.toggle('show');
-}
-
-function navigate(page, event) {
-    event.preventDefault();  // Prevent default anchor behavior
-    event.stopPropagation();  // Prevent event from bubbling up
-
-    // Hide menu after selection
-    const menu = document.getElementById('navMenu');
-    menu.classList.remove('show');
-
-    // Use Streamlit's setComponentValue to update nav_action
-    window.parent.postMessage({
-        type: 'streamlit:setComponentValue',
-        value: page,
-        key: 'nav_action'
-    }, '*');
-}
-
-// Close menu when clicking outside
-document.addEventListener('click', function(event) {
-    const menu = document.getElementById('navMenu');
-    const button = document.querySelector('.nav-menu-button');
-
-    // Only close if click is outside menu and button
-    if (!menu.contains(event.target) && !button.contains(event.target)) {
-        menu.classList.remove('show');
-    }
-});
-
-// Prevent menu from closing when clicking inside it
-document.getElementById('navMenu').addEventListener('click', function(event) {
-    event.stopPropagation();
-});
-</script>
-"""
-
-# Navigation menu HTML
-nav_menu_html = f"""
-<div class="nav-menu-button" onclick="toggleNavMenu(event)">
-    <span>☰</span>
-</div>
-<div class="nav-menu-popup" id="navMenu">
-    <a href="#" class="nav-menu-item" onclick="navigate('Home', event)">🏠 Home</a>
-    <a href="#" class="nav-menu-item" onclick="navigate('Log Movement', event)">📝 Log Movement</a>
-    <a href="#" class="nav-menu-item" onclick="navigate('Generate Workout', event)">🎯 Generate Workout</a>
-    <a href="#" class="nav-menu-item" onclick="navigate('Progress Tracker', event)">📊 Progress Tracker</a>
-    <a href="#" class="nav-menu-item" onclick="navigate('Social Hub', event)">🤝 Social Hub</a>
-    <a href="#" class="nav-menu-item" onclick="navigate('Achievements', event)">🏆 Achievements</a>
-    <a href="#" class="nav-menu-item" onclick="navigate('Profile', event)">👤 Profile</a>
-    <a href="#" class="nav-menu-item" onclick="navigate('Logout', event)">🚪 Logout</a>
-</div>
-{nav_menu_js}
-"""
+def navigate_to(page):
+    if page == "Logout":
+        st.session_state.user_id = None
+        st.session_state.username = None
+        st.session_state.current_page = "Home"
+    else:
+        st.session_state.current_page = page
+    st.session_state.show_nav = False
+    st.rerun()
 
 def login_user():
     st.header("Login")
@@ -179,10 +117,6 @@ def show_login_page():
         signup_user()
 
 def main():
-    # Handle navigation actions first
-    handle_nav_action()
-
-    # Show login page if user is not logged in
     if not st.session_state.user_id:
         show_login_page()
         return
@@ -190,30 +124,39 @@ def main():
     # Create container for logo
     logo_container = st.container()
     with logo_container:
-        # Display logo
         logo_path = "attached_assets/BlackBack.png"
         if Path(logo_path).exists():
             st.image(logo_path, use_container_width=False, width=250)
         else:
             st.title("🏋️‍♂️ Olympic Weightlifting Tracker")
 
-        # Add minimal spacing after logo
-        st.markdown('<div style="margin-bottom: 0.5rem;"></div>', unsafe_allow_html=True)
+    # Navigation button
+    st.markdown(
+        """
+        <div class="nav-menu-button" onclick="
+            window.parent.postMessage({
+                type: 'streamlit:componentValue',
+                value: true,
+                key: 'show_nav'
+            }, '*');
+        ">
+            <span>☰</span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    # Add debug container for navigation state
-    with st.container():
-        st.markdown(
-            f"""
-            <div style="display: none;">
-                Current Page: {st.session_state.current_page}
-                Nav Action: {st.session_state.nav_action}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    # Inject navigation menu HTML
-    st.markdown(nav_menu_html, unsafe_allow_html=True)
+    # Navigation menu
+    if st.session_state.show_nav:
+        with st.sidebar:
+            st.button("🏠 Home", on_click=navigate_to, args=("Home",), use_container_width=True)
+            st.button("📝 Log Movement", on_click=navigate_to, args=("Log Movement",), use_container_width=True)
+            st.button("🎯 Generate Workout", on_click=navigate_to, args=("Generate Workout",), use_container_width=True)
+            st.button("📊 Progress Tracker", on_click=navigate_to, args=("Progress Tracker",), use_container_width=True)
+            st.button("🤝 Social Hub", on_click=navigate_to, args=("Social Hub",), use_container_width=True)
+            st.button("🏆 Achievements", on_click=navigate_to, args=("Achievements",), use_container_width=True)
+            st.button("👤 Profile", on_click=navigate_to, args=("Profile",), use_container_width=True)
+            st.button("🚪 Logout", on_click=navigate_to, args=("Logout",), use_container_width=True)
 
     # Handle page display based on current_page
     if st.session_state.current_page == "Home":
@@ -845,14 +788,15 @@ def show_profile():
                 )
 
             if st.form_submit_button("Update Avatar"):
-                success, message = avatar_manager.update_avatar(                    st.session_state.user_id,
+                success, message = avatar_manager.update_avatar(
+                    st.session_state.user_id,
                     selected_style,
                     selected_background,
                     features
                 )
                 if success:
                     st.success("Avatar updated successfully!")
-                    st.rerun()  # Updated from experimental_rerun to rerun
+                    st.rerun()
                 else:
                     st.error(message)
 

@@ -8,12 +8,98 @@
     max-width: 250px;
     height: auto;
     margin: 0.5rem 0;
-    image-rendering: -webkit-optimize-contrast;  /* Improve image sharpness */
+    image-rendering: -webkit-optimize-contrast;
     image-rendering: crisp-edges;
 }
 
 [data-testid="stImage"] {
     margin-bottom: 0.5rem !important;
+}
+
+/* Navigation menu button styling */
+.nav-menu-button {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: #DAA520;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    z-index: 1000;
+    transition: all 0.3s ease;
+    font-size: 24px;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.nav-menu-button:hover {
+    transform: scale(1.1);
+    background-color: #B8860B;
+}
+
+.nav-menu-button:active {
+    transform: scale(0.95);
+}
+
+/* Sidebar styling */
+[data-testid="stSidebar"] {
+    display: none !important;
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    height: 100vh !important;
+    width: 300px !important;
+    background-color: white !important;
+    z-index: 999 !important;
+    padding: 2rem !important;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.1) !important;
+}
+
+[data-testid="stSidebar"][aria-expanded="true"] {
+    display: block !important;
+}
+
+/* Override Streamlit's button styles in the navigation menu */
+[data-testid="stSidebar"] .stButton > button {
+    background-color: transparent;
+    border: none;
+    color: #2C3E50;
+    text-align: left;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    margin: 0.25rem 0;
+    border-radius: 5px;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+}
+
+[data-testid="stSidebar"] .stButton > button:hover {
+    background-color: #f8f9fa;
+    color: #DAA520;
+    transform: translateX(5px);
+}
+
+/* Mobile responsiveness */
+@media screen and (max-width: 768px) {
+    .nav-menu-button {
+        bottom: 1rem;
+        right: 1rem;
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+    }
+
+    [data-testid="stSidebar"] {
+        width: 250px !important;
+    }
 }
 
 /* Quote container styling */
@@ -35,13 +121,7 @@
     line-height: 1.4;
 }
 
-/* Reduce spacing between elements */
-[data-testid="stVerticalBlock"] > div {
-    padding-top: 0.5rem !important;
-    padding-bottom: 0.5rem !important;
-}
-
-/* Movement status card styling with reduced margins */
+/* Movement status card styling */
 .movement-status-card {
     padding: 0.75rem;
     border-radius: 8px;
@@ -91,165 +171,10 @@
     background-color: #B8860B;
 }
 
-/* Workout plan styling */
-.workout-plan {
-    background-color: white;
-    padding: 2rem;
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.workout-plan h3 {
-    color: #DAA520;
-    margin-top: 1.5rem;
-    margin-bottom: 1rem;
-}
-
-.workout-plan ul {
-    list-style-type: none;
-    padding-left: 0;
-}
-
-.workout-plan li {
-    padding: 0.5rem 0;
-    border-bottom: 1px solid #eee;
-}
-
-/* Progress chart styling */
+/* Charts and visualizations */
 [data-testid="stPlotlyChart"] {
     background-color: white;
     padding: 1rem;
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-/* Status indicators */
-.success-status {
-    color: #28a745;
-    font-weight: bold;
-}
-
-.failed-status {
-    color: #dc3545;
-    font-weight: bold;
-}
-
-/* Mobile responsiveness */
-@media screen and (max-width: 768px) {
-    .movement-status-card {
-        padding: 0.5rem;
-        font-size: 0.8rem;
-    }
-
-    .workout-plan {
-        padding: 1rem;
-    }
-
-    [data-testid="stMetricValue"] {
-        font-size: 1.5rem !important;
-    }
-
-    .app-logo {
-        max-width: 150px;
-    }
-}
-
-/* Hide default sidebar */
-[data-testid="stSidebar"] {
-    display: none !important;
-}
-
-/* Navigation menu button styling */
-.nav-menu-button {
-    position: fixed;
-    bottom: 2rem;
-    right: 2rem;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background-color: #DAA520;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    z-index: 1000;
-    transition: all 0.3s ease;
-    font-size: 24px;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-}
-
-.nav-menu-button:hover {
-    transform: scale(1.1);
-    background-color: #B8860B;
-}
-
-.nav-menu-button:active {
-    transform: scale(0.95);
-}
-
-/* Navigation menu popup */
-.nav-menu-popup {
-    position: fixed;
-    bottom: 5rem;
-    right: 2rem;
-    background-color: white;
-    border-radius: 10px;
-    padding: 1rem;
-    box-shadow: 0 2px 15px rgba(0,0,0,0.1);
-    z-index: 999;
-    display: none;
-    width: 200px;
-    opacity: 0;
-    transform: translateY(20px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.nav-menu-popup.show {
-    display: block;
-    opacity: 1;
-    transform: translateY(0);
-}
-
-.nav-menu-item {
-    padding: 0.5rem 1rem;
-    margin: 0.25rem 0;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    color: #2C3E50;
-    text-decoration: none;
-    display: block;
-    font-size: 16px;
-    line-height: 1.5;
-}
-
-.nav-menu-item:hover {
-    background-color: #f8f9fa;
-    color: #DAA520;
-    transform: translateX(5px);
-}
-
-/* Mobile responsiveness */
-@media screen and (max-width: 768px) {
-    .nav-menu-button {
-        bottom: 1rem;
-        right: 1rem;
-        width: 50px;
-        height: 50px;
-        font-size: 20px;
-    }
-
-    .nav-menu-popup {
-        bottom: 4rem;
-        right: 1rem;
-        width: 180px;
-    }
-
-    .nav-menu-item {
-        font-size: 14px;
-        padding: 0.4rem 0.8rem;
-    }
 }
