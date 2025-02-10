@@ -1,31 +1,36 @@
 import os
 import json
-from anthropic import Anthropic
+from openai import OpenAI
 
 class WorkoutGenerator:
     def __init__(self):
-        # The newest Anthropic model is "claude-3-5-sonnet-20241022" which was released October 22, 2024
-        self.model = "claude-3-5-sonnet-20241022"
-        self.client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
+        # do not change this unless explicitly requested by the user
+        self.model = "gpt-4o"
+        self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
     def generate_workout(self, movements):
         prompt = self._create_prompt(movements)
 
         try:
-            response = self.client.messages.create(
+            response = self.client.chat.completions.create(
                 model=self.model,
-                max_tokens=1024,
                 messages=[
+                    {
+                        "role": "system",
+                        "content": "You are an expert Olympic weightlifting coach."
+                    },
                     {
                         "role": "user",
                         "content": prompt
                     }
                 ],
+                response_format={"type": "json_object"}
             )
 
             # Parse the response content as JSON
             try:
-                workout_data = json.loads(response.content)
+                workout_data = json.loads(response.choices[0].message.content)
                 return self._format_workout(workout_data)
             except json.JSONDecodeError:
                 return "Error: Unable to parse the generated workout. Please try again."
@@ -33,7 +38,7 @@ class WorkoutGenerator:
         except Exception as e:
             error_message = str(e)
             if "api_key" in error_message.lower():
-                return "Error: Invalid Anthropic API key. Please check your API key."
+                return "Error: Invalid OpenAI API key. Please check your API key."
             elif "quota" in error_message.lower():
                 return "Error: API quota exceeded. Please check your usage limits."
             else:
@@ -41,9 +46,8 @@ class WorkoutGenerator:
 
     def _create_prompt(self, movements):
         return f"""
-        You are an expert Olympic weightlifting coach. Create a detailed workout focusing on these movements: {', '.join(movements)}.
-
-        The response should be valid JSON format with this exact structure:
+        Create a detailed workout focusing on these movements: {', '.join(movements)}.
+        Return the response in JSON format with this exact structure:
         {{
             "warm_up": ["exercise1", "exercise2", ...],
             "main_workout": [
