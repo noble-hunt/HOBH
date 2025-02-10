@@ -590,7 +590,7 @@ def show_progress_tracker():
     with col1:
         movement = st.selectbox(
             "Select Movement",
-            data_manager.get_movements()
+            data_manager.get_all_movements()
         )
 
     with col2:
@@ -849,7 +849,7 @@ def show_profile():
 
         # Features customization
         st.subheader("Features")
-        feature_cols = st.columns(2)
+        feature_cols =st.columns(2)
         with feature_cols[0]:
             hair_style = st.selectbox("Hair Style", ["Short", "Long", "Curly", "Wavy"])
             eye_color = st.selectbox("Eye Color", ["Brown", "Blue", "Green", "Hazel"])
