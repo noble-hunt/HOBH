@@ -120,15 +120,6 @@ def main():
         show_login_page()
         return
 
-    # Create container for logo
-    logo_container = st.container()
-    with logo_container:
-        logo_path = "attached_assets/yHOBH.png"
-        if Path(logo_path).exists():
-            st.image(logo_path, use_container_width=False, width=250)
-        else:
-            st.title("🏋️‍♂️ Olympic Weightlifting Tracker")
-
     # Navigation button with Streamlit native components
     st.button("☰", key="nav_toggle", on_click=toggle_nav, help="Toggle navigation menu")
 

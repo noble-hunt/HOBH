@@ -301,3 +301,39 @@ class DataManager:
         except SQLAlchemyError as e:
             print(f"Error getting movement predictions: {e}")
             return None
+
+    def get_workout_streak(self, user_id):
+        """Calculate the current workout streak for a user."""
+        try:
+            with self._session_scope() as session:
+                # Get all workout dates for the user
+                workout_dates = session.query(func.date(WorkoutLog.date))\
+                    .filter(WorkoutLog.user_id == user_id)\
+                    .distinct()\
+                    .order_by(func.date(WorkoutLog.date).desc())\
+                    .all()
+
+                if not workout_dates:
+                    return 0
+
+                # Convert to list of dates
+                workout_dates = [date[0] for date in workout_dates]
+
+                # Calculate current streak
+                current_streak = 1  # Start with 1 for the most recent workout
+                latest_date = workout_dates[0]
+
+                for prev_date in workout_dates[1:]:
+                    # Check if dates are consecutive
+                    date_diff = (latest_date - prev_date).days
+                    if date_diff == 1:
+                        current_streak += 1
+                        latest_date = prev_date
+                    else:
+                        break  # Streak is broken
+
+                return current_streak
+
+        except Exception as e:
+            print(f"Error calculating workout streak: {str(e)}")
+            return 0
