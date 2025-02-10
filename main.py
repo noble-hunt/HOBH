@@ -77,7 +77,6 @@ def login_user():
                 st.session_state.user_id = user_id
                 st.session_state.username = username
                 st.success("Successfully logged in!")
-                st.experimental_rerun() #Using experimental_rerun instead of rerun
             else:
                 st.error(error)
 
@@ -104,7 +103,6 @@ def signup_user():
                 st.session_state.user_id = user_id
                 st.session_state.username = username
                 st.success("Account created successfully!")
-                st.experimental_rerun() #Using experimental_rerun instead of rerun
             else:
                 st.error(error)
 
@@ -161,7 +159,6 @@ def main():
         show_achievements()
     elif st.session_state.current_page == "Profile":
         show_profile()
-
 
 
 def show_social_hub():
@@ -785,7 +782,6 @@ def show_profile():
                 )
                 if success:
                     st.success("Avatar updated successfully!")
-                    st.experimental_rerun() #Using experimental_rerun instead of rerun
                 else:
                     st.error(message)
 
@@ -944,6 +940,7 @@ def show_profile():
 
                     except Exception as e:
                         st.error(f"Error exporting data: {str(e)}")
+
 
 
 def _get_recovery_color(score):
