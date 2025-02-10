@@ -7,8 +7,8 @@ class WorkoutGenerator:
         self.model = "gpt-3.5-turbo"  # Using GPT-3.5-turbo which is available on free tier
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-    def generate_workout(self, movements):
-        prompt = self._create_prompt(movements)
+    def generate_workout(self, movements, intensity_focus=False):
+        prompt = self._create_prompt(movements, intensity_focus)
 
         try:
             response = self.client.chat.completions.create(
@@ -16,7 +16,7 @@ class WorkoutGenerator:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are an expert Olympic weightlifting coach."
+                        "content": "You are an expert Olympic weightlifting and CrossFit coach."
                     },
                     {
                         "role": "user",
@@ -29,7 +29,7 @@ class WorkoutGenerator:
             # Parse the response content as JSON
             try:
                 workout_data = json.loads(response.choices[0].message.content)
-                return self._format_workout(workout_data)
+                return self._format_workout(workout_data, intensity_focus)
             except json.JSONDecodeError:
                 return "Error: Unable to parse the generated workout. Please try again."
 
@@ -42,9 +42,11 @@ class WorkoutGenerator:
             else:
                 return f"Error generating workout: {error_message}"
 
-    def _create_prompt(self, movements):
+    def _create_prompt(self, movements, intensity_focus):
+        style = "HIIT/CrossFit style with high intensity intervals and conditioning" if intensity_focus else "traditional Olympic weightlifting style"
+
         return f"""
-        Create a detailed workout focusing on these movements: {', '.join(movements)}.
+        Create a detailed {style} workout focusing on these movements: {', '.join(movements)}.
         Return the response in JSON format with this exact structure:
         {{
             "warm_up": ["exercise1", "exercise2", ...],
@@ -54,19 +56,22 @@ class WorkoutGenerator:
             "accessory_work": [
                 {{"exercise": "name", "sets": X, "reps": Y}}
             ],
-            "cool_down": ["exercise1", "exercise2", ...]
+            "cool_down": ["exercise1", "exercise2", ...],
+            "time_domains": {{"total_time": "estimated workout duration", "work_intervals": "work interval length", "rest_intervals": "rest interval length"}}
         }}
 
         Include:
         1. A proper warm-up sequence specific to the selected movements
-        2. Main workout with appropriate sets, reps, and intensity percentages based on standard Olympic weightlifting progression
+        2. Main workout with appropriate sets, reps, and intensity percentages
         3. Complementary accessory work
         4. An appropriate cool-down routine
+        5. Time domains for intervals if it's a HIIT workout
 
-        Ensure all exercises are appropriate for Olympic weightlifting and follow proper progression principles.
+        Ensure all exercises are appropriate for {style} and follow proper progression principles.
+        If it's a HIIT workout, include dynamic movements and metabolic conditioning.
         """
 
-    def _format_workout(self, workout_data):
+    def _format_workout(self, workout_data, intensity_focus):
         html = "<div class='workout-plan'>"
 
         # Warm-up
@@ -76,10 +81,25 @@ class WorkoutGenerator:
         html += "</ul>"
 
         # Main workout
-        html += "<h3>💪 Main Workout</h3><ul>"
+        workout_type = "HIIT/CrossFit WOD" if intensity_focus else "Main Workout"
+        html += f"<h3>💪 {workout_type}</h3><ul>"
         for exercise in workout_data["main_workout"]:
             html += f"<li>{exercise['movement']}: {exercise['sets']} sets × {exercise['reps']} reps @ {exercise['intensity']}</li>"
         html += "</ul>"
+
+        # Time domains for HIIT workouts
+        if intensity_focus and "time_domains" in workout_data:
+            time_info = workout_data["time_domains"]
+            html += f"""
+            <div class='time-domains'>
+                <h4>⏱️ Time Domains</h4>
+                <ul>
+                    <li>Total Time: {time_info['total_time']}</li>
+                    <li>Work Intervals: {time_info['work_intervals']}</li>
+                    <li>Rest Intervals: {time_info['rest_intervals']}</li>
+                </ul>
+            </div>
+            """
 
         # Accessory work
         html += "<h3>🏋️‍♂️ Accessory Work</h3><ul>"

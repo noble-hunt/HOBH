@@ -560,13 +560,22 @@ def show_workout_generator():
         movements
     )
 
+    # Add intensity focus toggle
+    intensity_focus = st.toggle(
+        "HIIT/CrossFit Style",
+        help="Enable to generate a high-intensity interval training workout with CrossFit elements"
+    )
+
     if st.button("Generate Workout"):
         if not selected_movements:
             st.warning("Please select at least one movement.")
             return
 
         workout_generator = WorkoutGenerator()
-        workout = workout_generator.generate_workout(selected_movements)
+        workout = workout_generator.generate_workout(
+            selected_movements,
+            intensity_focus=intensity_focus
+        )
 
         st.subheader("Your Custom Workout")
         st.markdown(workout, unsafe_allow_html=True)
@@ -846,6 +855,7 @@ def show_profile():
         with feature_cols[1]:
             skin_tone = st.selectbox("Skin Tone", ["Light", "Medium", "Dark", "Custom"])
             accessories = st.multiselect("Accessories", ["Glasses", "Hat", "Earrings"])
+                    
 
             if st.form_submit_button("Update Avatar"):
                 success, message = avatar_manager.update_avatar(
