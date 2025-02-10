@@ -4,7 +4,7 @@ from openai import OpenAI
 
 class WorkoutGenerator:
     def __init__(self):
-        self.model = "gpt-4"  # Using standard GPT-4 model
+        self.model = "gpt-3.5-turbo"  # Using GPT-3.5-turbo which is available on free tier
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
     def generate_workout(self, movements):
