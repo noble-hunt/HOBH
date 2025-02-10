@@ -209,130 +209,214 @@ def show_social_hub():
                 st.error(f"Error sharing workout: {str(e)}")
 
 def show_home():
-    st.header("Welcome to Your Weightlifting Journey")
+    """Display the home page with animated welcome screen"""
 
-    # Daily Motivation Quote
-    if (not st.session_state.daily_quote or 
-        not st.session_state.quote_date or 
-        st.session_state.quote_date.date() != datetime.now().date()):
+    # Welcome Container with animated logo
+    welcome_container = st.container()
+    with welcome_container:
+        st.markdown('<div class="welcome-container">', unsafe_allow_html=True)
 
-        # Get user context for personalization
-        user_context = {}
-        if st.session_state.user_id:
-            try:
-                recent_logs = data_manager.get_recent_logs(st.session_state.user_id)
-                if recent_logs and len(recent_logs) > 0 and recent_logs[0].get('movement'):
-                    user_context = {
-                        'target_movement': recent_logs[0]['movement']['name'],
-                        'current_streak': len(recent_logs)
-                    }
-            except Exception as e:
-                st.error(f"Error loading recent activity: {str(e)}")
-                user_context = {}
+        # Animated logo
+        if Path("attached_assets/yHOBH.png").exists():
+            st.markdown(
+                f'<div class="welcome-logo">',
+                unsafe_allow_html=True
+            )
+            st.image("attached_assets/yHOBH.png", use_container_width=False, width=250)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        st.session_state.daily_quote = quote_generator.generate_workout_quote(user_context)
-        st.session_state.quote_date = datetime.now()
-
-    # Display the quote
-    st.markdown(
-        f"""
-        <div style="padding: 1rem; background-color: #f8f9fa; border-radius: 10px; 
-                    margin: 0.5rem 0; text-align: center; border-left: 5px solid #DAA520;">
-            <p style="font-size: 1.2rem; font-style: italic; color: #2C3E50; margin: 0;">
-                "{st.session_state.daily_quote}"
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # Add Recovery and Strain Score Section
-    st.subheader("Training Load Status")
-
-    # Initialize recovery calculator
-    recovery_calc = RecoveryCalculator()
-
-    # Create two columns for recovery and strain scores
-    col1, col2 = st.columns(2)
-
-    with col1:
-        # Calculate and display recovery score
-        recovery_data = recovery_calc.calculate_recovery_score(
-            st.session_state.user_id,
-            datetime.now()
+        # Welcome message
+        st.markdown(
+            f'<h1 class="welcome-header">Welcome to Your Fitness Journey</h1>',
+            unsafe_allow_html=True
         )
 
-        # Create recovery score card
+        # Get user's fitness data
+        try:
+            recent_logs = data_manager.get_recent_logs(st.session_state.user_id)
+            total_workouts = len(recent_logs)
+            unique_movements = len(set(log['movement']['name'] for log in recent_logs if log.get('movement')))
+
+            # Create metrics grid
+            cols = st.columns(4)
+
+            metrics = [
+                {"label": "Total Workouts", "value": total_workouts, "icon": "🏋️‍♂️"},
+                {"label": "Movements Mastered", "value": unique_movements, "icon": "🎯"},
+                {"label": "Active Streak", "value": data_manager.get_workout_streak(st.session_state.user_id), "icon": "🔥"},
+                {"label": "PR's Set", "value": len(data_manager.get_prs()), "icon": "🏆"}
+            ]
+
+            for idx, metric in enumerate(metrics):
+                with cols[idx]:
+                    st.markdown(
+                        f"""
+                        <div class="journey-metric">
+                            <h3>{metric['icon']}</h3>
+                            <h2>{metric['value']}</h2>
+                            <p>{metric['label']}</p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+            # Recent Achievements
+            st.markdown('<h2 class="welcome-header">Recent Achievements</h2>', unsafe_allow_html=True)
+            achievements = data_manager.get_achievements()[:3]  # Get last 3 achievements
+
+            if achievements:
+                for achievement in achievements:
+                    st.markdown(
+                        f"""
+                        <div class="achievement-card">
+                            <h4>🏅 {achievement['name']}</h4>
+                            <p>{achievement['description']}</p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.info("Complete your first workout to start earning achievements!")
+
+            # Progress Preview
+            if recent_logs:
+                st.markdown('<div class="progress-preview">', unsafe_allow_html=True)
+                st.subheader("Your Progress Preview")
+
+                # Create a simplified progress chart
+                latest_movement = recent_logs[0]['movement']['name'] if recent_logs else None
+                if latest_movement:
+                    history = data_manager.get_movement_history(latest_movement)
+                    if not history.empty:
+                        fig = create_progress_chart(history, latest_movement)
+                        st.plotly_chart(fig, use_container_width=True)
+
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        except Exception as e:
+            st.error(f"Error loading fitness data: {str(e)}")
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # Daily Motivation Quote (keep existing quote functionality)
+        if (not st.session_state.daily_quote or 
+            not st.session_state.quote_date or 
+            st.session_state.quote_date.date() != datetime.now().date()):
+
+            user_context = {}
+            if st.session_state.user_id:
+                try:
+                    recent_logs = data_manager.get_recent_logs(st.session_state.user_id)
+                    if recent_logs and len(recent_logs) > 0 and recent_logs[0].get('movement'):
+                        user_context = {
+                            'target_movement': recent_logs[0]['movement']['name'],
+                            'current_streak': len(recent_logs)
+                        }
+                except Exception as e:
+                    st.error(f"Error loading recent activity: {str(e)}")
+                    user_context = {}
+
+            st.session_state.daily_quote = quote_generator.generate_workout_quote(user_context)
+            st.session_state.quote_date = datetime.now()
+
+        # Display the quote with animation
         st.markdown(
             f"""
-            <div style="padding: 1rem; background-color: {_get_recovery_color(recovery_data['recovery_score'])}; 
-                        border-radius: 10px; margin: 0.5rem 0;">
-                <h3 style="margin: 0; color: white;">Recovery Score</h3>
-                <h2 style="margin: 0.5rem 0; color: white;">{recovery_data['recovery_score']}/10</h2>
-                <p style="margin: 0; color: white;">{recovery_data['message']}</p>
+            <div class="quote-container" style="animation: fadeIn 1s ease-out 2s both;">
+                <p class="quote-text">"{st.session_state.daily_quote}"</p>
             </div>
             """,
             unsafe_allow_html=True
         )
 
-    with col2:
-        # Calculate and display strain score
-        strain_data = recovery_calc.calculate_strain_score(
-            st.session_state.user_id,
-            datetime.now()
-        )
+        # Add Recovery and Strain Score Section
+        st.subheader("Training Load Status")
 
-        # Create strain score card
-        st.markdown(
-            f"""
-            <div style="padding: 1rem; background-color: {_get_strain_color(strain_data['strain_score'])}; 
-                        border-radius: 10px; margin: 0.5rem 0;">
-                <h3 style="margin: 0; color: white;">Training Strain</h3>
-                <h2 style="margin: 0.5rem 0; color: white;">{strain_data['strain_score']}/10</h2>
-                <p style="margin: 0; color: white;">{strain_data['message']}</p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        # Initialize recovery calculator
+        recovery_calc = RecoveryCalculator()
 
-        # If there's training data, show the strain components
-        if strain_data['strain_score'] > 0:
-            with st.expander("View Strain Components"):
-                components = strain_data['components']
-                st.markdown(f"""
-                    - Volume Load: {components['volume']:.1f}/10
-                    - Relative Intensity: {components['intensity']:.1f}/10
-                    - Training Frequency: {components['frequency']:.1f}/10
-                """)
+        # Create two columns for recovery and strain scores
+        col1, col2 = st.columns(2)
 
-    st.subheader("Movement Status")
-    cols = st.columns(4)
-    movements = data_manager.get_movements()
-    prs = data_manager.get_prs()
+        with col1:
+            # Calculate and display recovery score
+            recovery_data = recovery_calc.calculate_recovery_score(
+                st.session_state.user_id,
+                datetime.now()
+            )
 
-    for idx, movement in enumerate(movements):
-        col = cols[idx % 4]
-        with col:
-            difficulty = data_manager.get_movement_difficulty(movement)
-
-            # Create colored box based on difficulty with more subtle gold colors
-            difficulty_colors = {
-                'BEGINNER': '#FFF8DC',  # Cornsilk
-                'INTERMEDIATE': '#FFE4B5',  # Moccasin
-                'ADVANCED': '#DEB887',  # Burlywood
-                'ELITE': '#DAA520'  # Goldenrod
-            }
-
+            # Create recovery score card
             st.markdown(
                 f"""
-                <div class="movement-status-card" style="background-color: {difficulty_colors[difficulty.value]};">
-                    <h5 style="margin: 0;">{movement}</h5>
-                    <p style="margin: 5px 0;">PR: {prs.get(movement, 0)} kg</p>
-                    <p style="margin: 0;">{difficulty.value}</p>
+                <div style="padding: 1rem; background-color: {_get_recovery_color(recovery_data['recovery_score'])}; 
+                            border-radius: 10px; margin: 0.5rem 0;">
+                    <h3 style="margin: 0; color: white;">Recovery Score</h3>
+                    <h2 style="margin: 0.5rem 0; color: white;">{recovery_data['recovery_score']}/10</h2>
+                    <p style="margin: 0; color: white;">{recovery_data['message']}</p>
                 </div>
                 """,
                 unsafe_allow_html=True
             )
+
+        with col2:
+            # Calculate and display strain score
+            strain_data = recovery_calc.calculate_strain_score(
+                st.session_state.user_id,
+                datetime.now()
+            )
+
+            # Create strain score card
+            st.markdown(
+                f"""
+                <div style="padding: 1rem; background-color: {_get_strain_color(strain_data['strain_score'])}; 
+                            border-radius: 10px; margin: 0.5rem 0;">
+                    <h3 style="margin: 0; color: white;">Training Strain</h3>
+                    <h2 style="margin: 0.5rem 0; color: white;">{strain_data['strain_score']}/10</h2>
+                    <p style="margin: 0; color: white;">{strain_data['message']}</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            # If there's training data, show the strain components
+            if strain_data['strain_score'] > 0:
+                with st.expander("View Strain Components"):
+                    components = strain_data['components']
+                    st.markdown(f"""
+                        - Volume Load: {components['volume']:.1f}/10
+                        - Relative Intensity: {components['intensity']:.1f}/10
+                        - Training Frequency: {components['frequency']:.1f}/10
+                    """)
+
+        st.subheader("Movement Status")
+        cols = st.columns(4)
+        movements = data_manager.get_movements()
+        prs = data_manager.get_prs()
+
+        for idx, movement in enumerate(movements):
+            col = cols[idx % 4]
+            with col:
+                difficulty = data_manager.get_movement_difficulty(movement)
+
+                # Create colored box based on difficulty with more subtle gold colors
+                difficulty_colors = {
+                    'BEGINNER': '#FFF8DC',  # Cornsilk
+                    'INTERMEDIATE': '#FFE4B5',  # Moccasin
+                    'ADVANCED': '#DEB887',  # Burlywood
+                    'ELITE': '#DAA520'  # Goldenrod
+                }
+
+                st.markdown(
+                    f"""
+                    <div class="movement-status-card" style="background-color: {difficulty_colors[difficulty.value]};">
+                        <h5 style="margin: 0;">{movement}</h5>
+                        <p style="margin: 5px 0;">PR: {prs.get(movement, 0)} kg</p>
+                        <p style="margin: 0;">{difficulty.value}</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
 
 def show_log_movement():
     st.header("Log Your Lift")
@@ -759,7 +843,7 @@ def show_profile():
             )
 
             selected_background = st.color_picker(
-                "Background Color",
+                "`Background Color",
                 value="#F0F2F6"
             )
 
@@ -940,7 +1024,6 @@ def show_profile():
 
                     except Exception as e:
                         st.error(f"Error exporting data: {str(e)}")
-
 
 
 def _get_recovery_color(score):

@@ -178,3 +178,65 @@
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
+
+/* Animated Welcome Screen */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes scaleIn {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.welcome-container {
+    padding: 2rem;
+    text-align: center;
+}
+
+.welcome-logo {
+    animation: scaleIn 1.2s ease-out;
+}
+
+.welcome-header {
+    animation: fadeIn 1s ease-out 0.3s both;
+}
+
+.journey-metric {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    animation: fadeIn 0.8s ease-out both;
+}
+
+.journey-metric:nth-child(1) { animation-delay: 0.4s; }
+.journey-metric:nth-child(2) { animation-delay: 0.6s; }
+.journey-metric:nth-child(3) { animation-delay: 0.8s; }
+.journey-metric:nth-child(4) { animation-delay: 1.0s; }
+
+.achievement-card {
+    background: linear-gradient(135deg, #FFD700 0%, #DAA520 100%);
+    color: white;
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 0.5rem;
+    text-align: left;
+    animation: slideIn 0.8s ease-out both;
+}
+
+.achievement-card:nth-child(1) { animation-delay: 1.2s; }
+.achievement-card:nth-child(2) { animation-delay: 1.4s; }
+.achievement-card:nth-child(3) { animation-delay: 1.6s; }
+
+.progress-preview {
+    margin-top: 2rem;
+    animation: fadeIn 1s ease-out 1.8s both;
+}
