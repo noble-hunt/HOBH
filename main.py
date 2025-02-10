@@ -13,6 +13,7 @@ from datetime import datetime
 from utils.recovery_calculator import RecoveryCalculator  # Add this import
 from utils.movement_analyzer import MovementAnalyzer # Add this import
 from utils.wearable_manager import WearableManager, WearableMetricType # Added import
+import os # Added import
 
 
 st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
@@ -720,13 +721,13 @@ def show_profile():
     with tab3:
         st.subheader("🏃‍♂️ Wearable Devices")
 
-        # Initialize wearable manager
-        from sqlalchemy import create_engine, text # Added import
-        from sqlalchemy.orm import Session # Added import
-        from utils.database import Base, WearableDevice # Added import
-        engine = create_engine('sqlite:///./data.db') # Added line
-        Base.metadata.create_all(engine) # Added line
-        
+        # Initialize wearable manager with PostgreSQL connection
+        from sqlalchemy import create_engine, text
+        from sqlalchemy.orm import Session
+        from utils.models import WearableDevice  # Updated import
+
+        engine = create_engine(os.environ['DATABASE_URL'])
+
         with Session(engine) as session:
             wearable_mgr = WearableManager(session)
 
