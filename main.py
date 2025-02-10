@@ -6,18 +6,18 @@ from utils.visualization import create_progress_chart, create_workout_summary, c
 from utils.social_manager import SocialManager
 from utils.auth_manager import AuthManager
 from utils.quote_generator import QuoteGenerator
-from utils.avatar_manager import AvatarManager # Added import
+from utils.avatar_manager import AvatarManager
 import plotly.express as px
 from pathlib import Path
 from datetime import datetime
-from utils.recovery_calculator import RecoveryCalculator  # Add this import
-from utils.movement_analyzer import MovementAnalyzer # Add this import
-from utils.wearable_manager import WearableManager, WearableMetricType # Added import
-import os # Added import
+from utils.recovery_calculator import RecoveryCalculator
+from utils.movement_analyzer import MovementAnalyzer
+from utils.wearable_manager import WearableManager, WearableMetricType
+import os
 import requests
 from urllib.parse import urlencode
-from utils.wearable_wizard import WearableWizard  # Add this import
-from utils.gamification import GamificationManager # Add import at the top
+from utils.wearable_wizard import WearableWizard
+from utils.gamification import GamificationManager
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 from utils.models import WearableDevice
@@ -34,7 +34,7 @@ data_manager = DataManager()
 social_manager = SocialManager()
 auth_manager = AuthManager()
 quote_generator = QuoteGenerator()
-avatar_manager = AvatarManager() # Added initialization
+avatar_manager = AvatarManager()
 
 # Initialize session state
 if 'user_id' not in st.session_state:
@@ -45,6 +45,49 @@ if 'daily_quote' not in st.session_state:
     st.session_state.daily_quote = None
 if 'quote_date' not in st.session_state:
     st.session_state.quote_date = None
+if 'nav_action' not in st.session_state:
+    st.session_state.nav_action = None
+
+def handle_nav_action():
+    if st.session_state.nav_action:
+        action = st.session_state.nav_action
+        st.session_state.nav_action = None  # Clear the action
+
+        if action == 'Logout':
+            st.session_state.user_id = None
+            st.session_state.username = None
+            st.session_state.current_page = "Home"
+            st.rerun()
+        else:
+            st.session_state.current_page = action
+
+# Navigation menu JavaScript with proper Streamlit event handling
+nav_menu_js = """
+<script>
+function toggleNavMenu() {
+    const menu = document.getElementById('navMenu');
+    menu.classList.toggle('show');
+}
+
+function navigate(page) {
+    // Use Streamlit's setComponentValue to update nav_action
+    window.parent.postMessage({
+        type: 'streamlit:setComponentValue',
+        value: page,
+        key: 'nav_action'
+    }, '*');
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', function(event) {
+    const menu = document.getElementById('navMenu');
+    const button = document.querySelector('.nav-menu-button');
+    if (!menu.contains(event.target) && !button.contains(event.target)) {
+        menu.classList.remove('show');
+    }
+});
+</script>
+"""
 
 def login_user():
     st.header("Login")
@@ -100,6 +143,9 @@ def show_login_page():
         signup_user()
 
 def main():
+    # Handle navigation actions first
+    handle_nav_action()
+
     # Show login button if user is not logged in
     if not st.session_state.user_id:
         show_login_page()
@@ -108,8 +154,6 @@ def main():
     # Initialize session state for navigation
     if 'current_page' not in st.session_state:
         st.session_state.current_page = "Home"
-    if 'show_nav_menu' not in st.session_state:
-        st.session_state.show_nav_menu = False
 
     # Create container for logo with custom spacing
     logo_container = st.container()
@@ -125,7 +169,7 @@ def main():
         st.markdown('<div style="margin-bottom: 0.5rem;"></div>', unsafe_allow_html=True)
 
     # Navigation menu HTML
-    nav_menu_html = """
+    nav_menu_html = f"""
     <div class="nav-menu-button" onclick="toggleNavMenu()">
         <span>☰</span>
     </div>
@@ -137,44 +181,15 @@ def main():
         <a href="#" class="nav-menu-item" onclick="navigate('Social Hub')">🤝 Social Hub</a>
         <a href="#" class="nav-menu-item" onclick="navigate('Achievements')">🏆 Achievements</a>
         <a href="#" class="nav-menu-item" onclick="navigate('Profile')">👤 Profile</a>
-        <a href="#" class="nav-menu-item" onclick="logout()">🚪 Logout</a>
+        <a href="#" class="nav-menu-item" onclick="navigate('Logout')">🚪 Logout</a>
     </div>
-
-    <script>
-    function toggleNavMenu() {
-        const menu = document.getElementById('navMenu');
-        menu.classList.toggle('show');
-    }
-
-    function navigate(page) {
-        window.parent.postMessage({
-            type: 'streamlit:setComponentValue',
-            value: page
-        }, '*');
-    }
-
-    function logout() {
-        window.parent.postMessage({
-            type: 'streamlit:setComponentValue',
-            value: 'Logout'
-        }, '*');
-    }
-
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-        const menu = document.getElementById('navMenu');
-        const button = document.querySelector('.nav-menu-button');
-        if (!menu.contains(event.target) && !button.contains(event.target)) {
-            menu.classList.remove('show');
-        }
-    });
-    </script>
+    {nav_menu_js}
     """
 
     # Inject navigation menu HTML
     st.markdown(nav_menu_html, unsafe_allow_html=True)
 
-    # Handle navigation
+    # Handle page display based on current_page
     if st.session_state.current_page == "Home":
         show_home()
     elif st.session_state.current_page == "Log Movement":
@@ -189,11 +204,7 @@ def main():
         show_achievements()
     elif st.session_state.current_page == "Profile":
         show_profile()
-    elif st.session_state.current_page == "Logout":
-        st.session_state.user_id = None
-        st.session_state.username = None
-        st.session_state.current_page = "Home"
-        st.rerun()
+
 
 def show_social_hub():
     st.header("🤝 Social Hub")
