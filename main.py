@@ -52,6 +52,7 @@ if 'current_page' not in st.session_state:
 
 def toggle_nav():
     st.session_state.show_nav = not st.session_state.show_nav
+    st.rerun()
 
 def navigate_to(page):
     if page == "Logout":
@@ -130,23 +131,10 @@ def main():
         else:
             st.title("🏋️‍♂️ Olympic Weightlifting Tracker")
 
-    # Navigation button
-    st.markdown(
-        """
-        <div class="nav-menu-button" onclick="
-            window.parent.postMessage({
-                type: 'streamlit:componentValue',
-                value: true,
-                key: 'show_nav'
-            }, '*');
-        ">
-            <span>☰</span>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    # Navigation button with Streamlit native components
+    st.button("☰", key="nav_toggle", on_click=toggle_nav, help="Toggle navigation menu")
 
-    # Navigation menu
+    # Navigation menu using Streamlit's native sidebar
     if st.session_state.show_nav:
         with st.sidebar:
             st.button("🏠 Home", on_click=navigate_to, args=("Home",), use_container_width=True)
@@ -836,7 +824,7 @@ def show_profile():
                 st.subheader("Today's Metrics")
                 metrics = wearable_mgr.get_daily_summary(st.session_state.user_id)
 
-                if metrics:
+                if metrics:                    
                     for metric_type, value in metrics.items():
                         if isinstance(value, (int, float)):
                             st.metric(
@@ -853,7 +841,7 @@ def show_profile():
                 for device in devices:
                     st.markdown(f"""
                         <div style='padding: 0.5rem; background-color: #f0f2f6; 
-                                border-radius: 5px; margin-bottom: 0.5rem;'>
+                                border-radius: 5px; marginbottom: 0.5rem;'>
                             <p style='margin: 0;'>
                                 <strong>{device.device_type}</strong><br>
                                 Last synced: {device.last_sync.strftime('%Y-%m-%d %H:%M') 
