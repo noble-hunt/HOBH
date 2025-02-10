@@ -23,7 +23,6 @@ from sqlalchemy.orm import Session
 from utils.models import WearableDevice
 from utils.export_manager import HealthDataExporter
 
-
 st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
 
 # Load custom CSS
@@ -101,18 +100,16 @@ def show_login_page():
         signup_user()
 
 def main():
-    # Show logout button in sidebar if user is logged in
-    if st.session_state.user_id:
-        st.sidebar.text(f"Welcome, {st.session_state.username}!")
-        if st.sidebar.button("Logout"):
-            st.session_state.user_id = None
-            st.session_state.username = None
-            st.rerun()
-
-    # Require login for all pages except login page
+    # Show login button if user is not logged in
     if not st.session_state.user_id:
         show_login_page()
         return
+
+    # Initialize session state for navigation
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = "Home"
+    if 'show_nav_menu' not in st.session_state:
+        st.session_state.show_nav_menu = False
 
     # Create container for logo with custom spacing
     logo_container = st.container()
@@ -127,27 +124,76 @@ def main():
         # Add minimal spacing after logo
         st.markdown('<div style="margin-bottom: 0.5rem;"></div>', unsafe_allow_html=True)
 
-    # Sidebar for navigation
-    page = st.sidebar.selectbox(
-        "Navigation",
-        ["Home", "Log Movement", "Generate Workout", "Progress Tracker", "Social Hub", "Achievements", "Profile"]
-    )
+    # Navigation menu HTML
+    nav_menu_html = """
+    <div class="nav-menu-button" onclick="toggleNavMenu()">
+        <span>☰</span>
+    </div>
+    <div class="nav-menu-popup" id="navMenu">
+        <a href="#" class="nav-menu-item" onclick="navigate('Home')">🏠 Home</a>
+        <a href="#" class="nav-menu-item" onclick="navigate('Log Movement')">📝 Log Movement</a>
+        <a href="#" class="nav-menu-item" onclick="navigate('Generate Workout')">🎯 Generate Workout</a>
+        <a href="#" class="nav-menu-item" onclick="navigate('Progress Tracker')">📊 Progress Tracker</a>
+        <a href="#" class="nav-menu-item" onclick="navigate('Social Hub')">🤝 Social Hub</a>
+        <a href="#" class="nav-menu-item" onclick="navigate('Achievements')">🏆 Achievements</a>
+        <a href="#" class="nav-menu-item" onclick="navigate('Profile')">👤 Profile</a>
+        <a href="#" class="nav-menu-item" onclick="logout()">🚪 Logout</a>
+    </div>
 
-    if page == "Home":
+    <script>
+    function toggleNavMenu() {
+        const menu = document.getElementById('navMenu');
+        menu.classList.toggle('show');
+    }
+
+    function navigate(page) {
+        window.parent.postMessage({
+            type: 'streamlit:setComponentValue',
+            value: page
+        }, '*');
+    }
+
+    function logout() {
+        window.parent.postMessage({
+            type: 'streamlit:setComponentValue',
+            value: 'Logout'
+        }, '*');
+    }
+
+    // Close menu when clicking outside
+    document.addEventListener('click', function(event) {
+        const menu = document.getElementById('navMenu');
+        const button = document.querySelector('.nav-menu-button');
+        if (!menu.contains(event.target) && !button.contains(event.target)) {
+            menu.classList.remove('show');
+        }
+    });
+    </script>
+    """
+
+    # Inject navigation menu HTML
+    st.markdown(nav_menu_html, unsafe_allow_html=True)
+
+    # Handle navigation
+    if st.session_state.current_page == "Home":
         show_home()
-    elif page == "Log Movement":
+    elif st.session_state.current_page == "Log Movement":
         show_log_movement()
-    elif page == "Generate Workout":
+    elif st.session_state.current_page == "Generate Workout":
         show_workout_generator()
-    elif page == "Progress Tracker":
+    elif st.session_state.current_page == "Progress Tracker":
         show_progress_tracker()
-    elif page == "Social Hub":
+    elif st.session_state.current_page == "Social Hub":
         show_social_hub()
-    elif page == "Achievements":
+    elif st.session_state.current_page == "Achievements":
         show_achievements()
-    elif page == "Profile":
+    elif st.session_state.current_page == "Profile":
         show_profile()
-
+    elif st.session_state.current_page == "Logout":
+        st.session_state.user_id = None
+        st.session_state.username = None
+        st.session_state.current_page = "Home"
+        st.rerun()
 
 def show_social_hub():
     st.header("🤝 Social Hub")
@@ -811,24 +857,35 @@ def show_profile():
                 metrics = wearable_mgr.get_daily_summary(st.session_state.user_id)
 
                 if metrics:
-                    # Create metric cards
-                    metric_cols = st.columns(3)
-                    for idx, (metric, data) in enumerate(metrics.items()):
-                        with metric_cols[idx % 3]:
+                    for metric_type, value in metrics.items():
+                        if isinstance(value, (int, float)):
                             st.metric(
-                                label=metric.replace('_', ' ').title(),
-                                value=f"{data['value']} {data.get('unit', '')}",
-                                help=f"Last updated: {data['last_updated'].strftime('%H:%M')}"
+                                label=metric_type.replace('_', ' ').title(),
+                                value=f"{value:,.0f}"
                             )
                 else:
-                    st.info("No wearable data available. Connect a device to see your metrics!")
+                    st.info("No wearable data available for today")
 
             with col2:
-                st.subheader("Manage Devices")
+                st.subheader("Connected Devices")
+                devices = wearable_mgr.get_user_devices(st.session_state.user_id)
 
-                # Initialize and render wearable wizard
-                wizard = WearableWizard()
-                wizard.render_wizard()
+                for device in devices:
+                    st.markdown(f"""
+                        <div style='padding: 0.5rem; background-color: #f0f2f6; 
+                                border-radius: 5px; margin-bottom: 0.5rem;'>
+                            <p style='margin: 0;'>
+                                <strong>{device.device_type}</strong><br>
+                                Last synced: {device.last_sync.strftime('%Y-%m-%d %H:%M') 
+                                            if device.last_sync else 'Never'}
+                            </p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                # Add new device button
+                if st.button("➕ Connect New Device"):
+                    wizard = WearableWizard()
+                    wizard.render_wizard()
 
     with tab4:
         st.subheader("🔄 Export Health Data")
