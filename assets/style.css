@@ -176,11 +176,18 @@
     box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     z-index: 1000;
     transition: all 0.3s ease;
+    font-size: 24px;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .nav-menu-button:hover {
     transform: scale(1.1);
     background-color: #B8860B;
+}
+
+.nav-menu-button:active {
+    transform: scale(0.95);
 }
 
 /* Navigation menu popup */
@@ -194,11 +201,16 @@
     box-shadow: 0 2px 15px rgba(0,0,0,0.1);
     z-index: 999;
     display: none;
+    width: 200px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .nav-menu-popup.show {
     display: block;
-    animation: slideIn 0.3s ease;
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .nav-menu-item {
@@ -206,15 +218,18 @@
     margin: 0.25rem 0;
     border-radius: 5px;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: all 0.2s ease;
     color: #2C3E50;
     text-decoration: none;
     display: block;
+    font-size: 16px;
+    line-height: 1.5;
 }
 
 .nav-menu-item:hover {
     background-color: #f8f9fa;
     color: #DAA520;
+    transform: translateX(5px);
 }
 
 @keyframes slideIn {
@@ -235,11 +250,17 @@
         right: 1rem;
         width: 50px;
         height: 50px;
+        font-size: 20px;
     }
 
     .nav-menu-popup {
         bottom: 4rem;
         right: 1rem;
-        width: 200px;
+        width: 180px;
+    }
+
+    .nav-menu-item {
+        font-size: 14px;
+        padding: 0.4rem 0.8rem;
     }
 }

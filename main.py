@@ -60,16 +60,25 @@ def handle_nav_action():
             st.rerun()
         else:
             st.session_state.current_page = action
+            st.rerun()  # Added rerun to refresh the page after navigation
 
 # Navigation menu JavaScript with proper Streamlit event handling
 nav_menu_js = """
 <script>
-function toggleNavMenu() {
+function toggleNavMenu(event) {
+    event.stopPropagation();  // Prevent event from bubbling up
     const menu = document.getElementById('navMenu');
     menu.classList.toggle('show');
 }
 
-function navigate(page) {
+function navigate(page, event) {
+    event.preventDefault();  // Prevent default anchor behavior
+    event.stopPropagation();  // Prevent event from bubbling up
+
+    // Hide menu after selection
+    const menu = document.getElementById('navMenu');
+    menu.classList.remove('show');
+
     // Use Streamlit's setComponentValue to update nav_action
     window.parent.postMessage({
         type: 'streamlit:setComponentValue',
@@ -82,11 +91,36 @@ function navigate(page) {
 document.addEventListener('click', function(event) {
     const menu = document.getElementById('navMenu');
     const button = document.querySelector('.nav-menu-button');
+
+    // Only close if click is outside menu and button
     if (!menu.contains(event.target) && !button.contains(event.target)) {
         menu.classList.remove('show');
     }
 });
+
+// Prevent menu from closing when clicking inside it
+document.getElementById('navMenu').addEventListener('click', function(event) {
+    event.stopPropagation();
+});
 </script>
+"""
+
+# Navigation menu HTML
+nav_menu_html = f"""
+<div class="nav-menu-button" onclick="toggleNavMenu(event)">
+    <span>☰</span>
+</div>
+<div class="nav-menu-popup" id="navMenu">
+    <a href="#" class="nav-menu-item" onclick="navigate('Home', event)">🏠 Home</a>
+    <a href="#" class="nav-menu-item" onclick="navigate('Log Movement', event)">📝 Log Movement</a>
+    <a href="#" class="nav-menu-item" onclick="navigate('Generate Workout', event)">🎯 Generate Workout</a>
+    <a href="#" class="nav-menu-item" onclick="navigate('Progress Tracker', event)">📊 Progress Tracker</a>
+    <a href="#" class="nav-menu-item" onclick="navigate('Social Hub', event)">🤝 Social Hub</a>
+    <a href="#" class="nav-menu-item" onclick="navigate('Achievements', event)">🏆 Achievements</a>
+    <a href="#" class="nav-menu-item" onclick="navigate('Profile', event)">👤 Profile</a>
+    <a href="#" class="nav-menu-item" onclick="navigate('Logout', event)">🚪 Logout</a>
+</div>
+{nav_menu_js}
 """
 
 def login_user():
@@ -168,23 +202,17 @@ def main():
         # Add minimal spacing after logo
         st.markdown('<div style="margin-bottom: 0.5rem;"></div>', unsafe_allow_html=True)
 
-    # Navigation menu HTML
-    nav_menu_html = f"""
-    <div class="nav-menu-button" onclick="toggleNavMenu()">
-        <span>☰</span>
-    </div>
-    <div class="nav-menu-popup" id="navMenu">
-        <a href="#" class="nav-menu-item" onclick="navigate('Home')">🏠 Home</a>
-        <a href="#" class="nav-menu-item" onclick="navigate('Log Movement')">📝 Log Movement</a>
-        <a href="#" class="nav-menu-item" onclick="navigate('Generate Workout')">🎯 Generate Workout</a>
-        <a href="#" class="nav-menu-item" onclick="navigate('Progress Tracker')">📊 Progress Tracker</a>
-        <a href="#" class="nav-menu-item" onclick="navigate('Social Hub')">🤝 Social Hub</a>
-        <a href="#" class="nav-menu-item" onclick="navigate('Achievements')">🏆 Achievements</a>
-        <a href="#" class="nav-menu-item" onclick="navigate('Profile')">👤 Profile</a>
-        <a href="#" class="nav-menu-item" onclick="navigate('Logout')">🚪 Logout</a>
-    </div>
-    {nav_menu_js}
-    """
+    # Add a debug container for navigation state
+    with st.container():
+        st.markdown(
+            f"""
+            <div style="display: none;">
+                Current Page: {st.session_state.current_page}
+                Nav Action: {st.session_state.nav_action}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
     # Inject navigation menu HTML
     st.markdown(nav_menu_html, unsafe_allow_html=True)
@@ -819,8 +847,7 @@ def show_profile():
                 )
 
             if st.form_submit_button("Update Avatar"):
-                success, message = avatar_manager.update_avatar(
-                    st.session_state.user_id,
+                success, message = avatar_manager.update_avatar(                    st.session_state.user_id,
                     selected_style,
                     selected_background,
                     features
