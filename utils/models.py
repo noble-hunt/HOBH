@@ -5,8 +5,19 @@ from sqlalchemy.exc import ProgrammingError, OperationalError
 from sqlalchemy.pool import NullPool
 import enum
 import os
-from datetime import datetime
+from datetime import datetime, date
 import time
+from typing import List
+
+# Add new enum class after existing enums
+class WearableMetricType(str, enum.Enum):
+    HEART_RATE = 'HEART_RATE'
+    STEPS = 'STEPS'
+    CALORIES = 'CALORIES'
+    SLEEP = 'SLEEP'
+    RECOVERY_SCORE = 'RECOVERY_SCORE'
+    STRAIN_SCORE = 'STRAIN_SCORE'
+    READINESS_SCORE = 'READINESS_SCORE'
 
 # Create Base class for declarative models
 Base = declarative_base()
@@ -56,6 +67,38 @@ class DifficultyLevel(str, enum.Enum):
     ADVANCED = 'ADVANCED'
     ELITE = 'ELITE'
 
+class WearableDevice(Base):
+    __tablename__ = 'wearable_devices'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('user_profiles.id'), nullable=False)
+    device_type = Column(String, nullable=False)  # e.g., 'WHOOP', 'FITBIT', 'GARMIN'
+    device_id = Column(String, unique=True)
+    last_sync = Column(DateTime)
+    auth_token = Column(String)
+    refresh_token = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    is_active = Column(Boolean, default=True)
+
+    # Relationships
+    user = relationship('UserProfile', back_populates='wearable_devices')
+    wearable_data = relationship('WearableData', back_populates='device')
+
+class WearableData(Base):
+    __tablename__ = 'wearable_data'
+
+    id = Column(Integer, primary_key=True)
+    device_id = Column(Integer, ForeignKey('wearable_devices.id'), nullable=False)
+    timestamp = Column(DateTime, nullable=False)
+    metric_type = Column(String, nullable=False)  # References WearableMetricType
+    metric_value = Column(Float, nullable=False)
+    metric_unit = Column(String)  # e.g., 'bpm', 'steps', 'calories'
+    confidence = Column(Float)  # Confidence score of the measurement
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    device = relationship('WearableDevice', back_populates='wearable_data')
+
 class UserProfile(Base):
     __tablename__ = 'user_profiles'
 
@@ -69,7 +112,10 @@ class UserProfile(Base):
     avatar_features = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationships
+    # Add wearable_devices relationship
+    wearable_devices = relationship('WearableDevice', back_populates='user')
+
+    # Existing relationships
     followers = relationship(
         'UserProfile',
         secondary=following,

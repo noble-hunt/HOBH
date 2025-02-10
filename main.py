@@ -12,6 +12,8 @@ from pathlib import Path
 from datetime import datetime
 from utils.recovery_calculator import RecoveryCalculator  # Add this import
 from utils.movement_analyzer import MovementAnalyzer # Add this import
+from utils.wearable_manager import WearableManager, WearableMetricType # Added import
+
 
 st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
 
@@ -635,7 +637,11 @@ def show_profile():
         return
 
     # Create tabs for different profile sections
-    tab1, tab2 = st.tabs(["Profile Info", "Avatar Customization"])
+    tab1, tab2, tab3 = st.tabs([
+        "Profile Info", 
+        "Avatar Customization",
+        "Wearable Devices"  # New tab
+    ])
 
     with tab1:
         user = auth_manager.get_user(st.session_state.user_id)
@@ -710,6 +716,116 @@ def show_profile():
                         st.warning("Avatar preview not available")
                 except Exception as e:
                     st.error(f"Error displaying avatar: {str(e)}")
+
+    with tab3:
+        st.subheader("🏃‍♂️ Wearable Devices")
+
+        # Initialize wearable manager
+        from sqlalchemy import create_engine, text # Added import
+        from sqlalchemy.orm import Session # Added import
+        from utils.database import Base, WearableDevice # Added import
+        engine = create_engine('sqlite:///./data.db') # Added line
+        Base.metadata.create_all(engine) # Added line
+        
+        with Session(engine) as session:
+            wearable_mgr = WearableManager(session)
+
+            # Create columns for metrics and device management
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                st.subheader("Today's Metrics")
+                metrics = wearable_mgr.get_daily_summary(st.session_state.user_id)
+
+                if metrics:
+                    # Create metric cards
+                    metric_cols = st.columns(3)
+                    for idx, (metric, data) in enumerate(metrics.items()):
+                        with metric_cols[idx % 3]:
+                            st.metric(
+                                label=metric.replace('_', ' ').title(),
+                                value=f"{data['value']} {data.get('unit', '')}",
+                                help=f"Last updated: {data['last_updated'].strftime('%H:%M')}"
+                            )
+                else:
+                    st.info("No wearable data available. Connect a device to see your metrics!")
+
+            with col2:
+                st.subheader("Manage Devices")
+
+                # Add new device
+                with st.expander("Add New Device"):
+                    device_type = st.selectbox(
+                        "Select Device Type",
+                        options=["WHOOP", "FITBIT", "GARMIN"]
+                    )
+
+                    if device_type:
+                        st.info(
+                            f"To connect your {device_type} device, you'll need to authorize "
+                            "access to your fitness data."
+                        )
+
+                        if st.button("Connect Device"):
+                            try:
+                                # TODO: Implement OAuth flow for selected device type
+                                st.success(
+                                    f"Successfully connected {device_type} device! "
+                                    "Your data will sync automatically."
+                                )
+                            except Exception as e:
+                                st.error(f"Error connecting device: {str(e)}")
+
+                # View connected devices
+                st.subheader("Connected Devices")
+                devices = session.query(WearableDevice)\
+                    .filter_by(user_id=st.session_state.user_id)\
+                    .all()
+
+                for device in devices:
+                    with st.container():
+                        cols = st.columns([3, 1])
+                        with cols[0]:
+                            st.write(f"**{device.device_type}**")
+                            st.caption(
+                                f"Last synced: "
+                                f"{device.last_sync.strftime('%Y-%m-%d %H:%M')}"
+                            )
+                        with cols[1]:
+                            if st.button("Sync", key=f"sync_{device.id}"):
+                                success, message = wearable_mgr.sync_device_data(device.id)
+                                if success:
+                                    st.success("Data synced successfully!")
+                                else:
+                                    st.error(f"Sync failed: {message}")
+
+        # Display week's progress
+        st.subheader("Weekly Progress")
+        metric_type = st.selectbox(
+            "Select Metric",
+            options=[m.value for m in WearableMetricType]
+        )
+
+        if metric_type:
+            with Session(engine) as session:
+                wearable_mgr = WearableManager(session)
+                data = wearable_mgr.get_recent_metrics(
+                    st.session_state.user_id,
+                    WearableMetricType(metric_type)
+                )
+
+                if data:
+                    df = pd.DataFrame(data)
+                    fig = px.line(
+                        df,
+                        x='timestamp',
+                        y='value',
+                        title=f"{metric_type.replace('_', ' ').title()} - Past Week"
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No data available for selected metric.")
+
 
 def _get_recovery_color(score):
     """Get background color for recovery score card."""
