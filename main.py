@@ -378,7 +378,7 @@ def show_home():
 
         st.subheader("Movement Status")
         cols = st.columns(4)
-        movements = data_manager.get_movements()
+        movements = data_manager.primary_movements
         prs = data_manager.get_prs()
 
         for idx, movement in enumerate(movements):
@@ -404,6 +404,7 @@ def show_home():
                     """,
                     unsafe_allow_html=True
                 )
+
 
 
 def show_log_movement():

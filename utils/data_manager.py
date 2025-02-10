@@ -29,6 +29,14 @@ print(f"WorkoutLog module: {WorkoutLog.__module__}")
 class DataManager:
     def __init__(self):
         """Initialize the DataManager with movement list and required components."""
+        # Primary movements for home screen status
+        self.primary_movements = [
+            "Strict Press", "Push Press", "Clean", "Jerk",
+            "Snatch", "Overhead Squat", "Front Squat", 
+            "Back Squat", "Deadlift", "Bench Press"
+        ]
+
+        # All movements including CrossFit movements
         self.movements = [
             # Olympic Lifts
             "Strict Press", "Push Press", "Clean", "Jerk",
@@ -228,7 +236,12 @@ class DataManager:
                     prev_level = list(DifficultyLevel)[list(DifficultyLevel).index(current_difficulty) - 1]
                     movement_record.current_difficulty = prev_level.value
 
-    def get_movements(self):
+    def get_primary_movements(self):
+        """Get the list of primary movements for home screen display."""
+        return self.primary_movements
+
+    def get_all_movements(self): #Renamed to avoid conflict
+        """Get the full list of available movements."""
         return self.movements
 
     def get_movement_difficulty(self, movement):
