@@ -269,20 +269,6 @@ def show_home():
             else:
                 st.info("Complete your first workout to start earning achievements!")
 
-            # Progress Preview
-            if recent_logs:
-                st.markdown('<div class="progress-preview">', unsafe_allow_html=True)
-                st.subheader("Your Progress Preview")
-
-                # Create a simplified progress chart
-                latest_movement = recent_logs[0]['movement']['name'] if recent_logs else None
-                if latest_movement:
-                    history = data_manager.get_movement_history(latest_movement)
-                    if not history.empty:
-                        fig = create_progress_chart(history, latest_movement)
-                        st.plotly_chart(fig, use_container_width=True)
-
-                st.markdown('</div>', unsafe_allow_html=True)
 
         except Exception as e:
             st.error(f"Error loading fitness data: {str(e)}")
