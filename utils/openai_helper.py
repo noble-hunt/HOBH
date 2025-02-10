@@ -32,6 +32,10 @@ class WorkoutGenerator:
                 return self._format_workout(workout_data, intensity_focus)
             except json.JSONDecodeError:
                 return "Error: Unable to parse the generated workout. Please try again."
+            except KeyError as e:
+                return f"Error: Missing required field in workout data: {str(e)}"
+            except Exception as e:
+                return f"Error formatting workout: {str(e)}"
 
         except Exception as e:
             error_message = str(e)
@@ -69,49 +73,62 @@ class WorkoutGenerator:
 
         Ensure all exercises are appropriate for {style} and follow proper progression principles.
         If it's a HIIT workout, include dynamic movements and metabolic conditioning.
+        For the main_workout section, ensure each movement has numeric values for sets and reps, and intensity as a percentage string.
         """
 
     def _format_workout(self, workout_data, intensity_focus):
+        """Format the workout data into HTML with proper error handling."""
         html = "<div class='workout-plan'>"
 
-        # Warm-up
-        html += "<h3>🔥 Warm-up</h3><ul>"
-        for exercise in workout_data["warm_up"]:
-            html += f"<li>{exercise}</li>"
-        html += "</ul>"
+        try:
+            # Warm-up
+            if "warm_up" in workout_data and isinstance(workout_data["warm_up"], list):
+                html += "<h3>🔥 Warm-up</h3><ul>"
+                for exercise in workout_data["warm_up"]:
+                    html += f"<li>{exercise}</li>"
+                html += "</ul>"
 
-        # Main workout
-        workout_type = "HIIT/CrossFit WOD" if intensity_focus else "Main Workout"
-        html += f"<h3>💪 {workout_type}</h3><ul>"
-        for exercise in workout_data["main_workout"]:
-            html += f"<li>{exercise['movement']}: {exercise['sets']} sets × {exercise['reps']} reps @ {exercise['intensity']}</li>"
-        html += "</ul>"
+            # Main workout
+            workout_type = "HIIT/CrossFit WOD" if intensity_focus else "Main Workout"
+            if "main_workout" in workout_data and isinstance(workout_data["main_workout"], list):
+                html += f"<h3>💪 {workout_type}</h3><ul>"
+                for exercise in workout_data["main_workout"]:
+                    if all(k in exercise for k in ("movement", "sets", "reps", "intensity")):
+                        html += f"<li>{exercise['movement']}: {exercise['sets']} sets × {exercise['reps']} reps @ {exercise['intensity']}</li>"
+                html += "</ul>"
 
-        # Time domains for HIIT workouts
-        if intensity_focus and "time_domains" in workout_data:
-            time_info = workout_data["time_domains"]
-            html += f"""
-            <div class='time-domains'>
-                <h4>⏱️ Time Domains</h4>
-                <ul>
-                    <li>Total Time: {time_info['total_time']}</li>
-                    <li>Work Intervals: {time_info['work_intervals']}</li>
-                    <li>Rest Intervals: {time_info['rest_intervals']}</li>
-                </ul>
-            </div>
-            """
+            # Time domains for HIIT workouts
+            if intensity_focus and "time_domains" in workout_data:
+                time_info = workout_data["time_domains"]
+                if all(k in time_info for k in ("total_time", "work_intervals", "rest_intervals")):
+                    html += f"""
+                    <div class='time-domains'>
+                        <h4>⏱️ Time Domains</h4>
+                        <ul>
+                            <li>Total Time: {time_info['total_time']}</li>
+                            <li>Work Intervals: {time_info['work_intervals']}</li>
+                            <li>Rest Intervals: {time_info['rest_intervals']}</li>
+                        </ul>
+                    </div>
+                    """
 
-        # Accessory work
-        html += "<h3>🏋️‍♂️ Accessory Work</h3><ul>"
-        for exercise in workout_data["accessory_work"]:
-            html += f"<li>{exercise['exercise']}: {exercise['sets']} sets × {exercise['reps']} reps</li>"
-        html += "</ul>"
+            # Accessory work
+            if "accessory_work" in workout_data and isinstance(workout_data["accessory_work"], list):
+                html += "<h3>🏋️‍♂️ Accessory Work</h3><ul>"
+                for exercise in workout_data["accessory_work"]:
+                    if all(k in exercise for k in ("exercise", "sets", "reps")):
+                        html += f"<li>{exercise['exercise']}: {exercise['sets']} sets × {exercise['reps']} reps</li>"
+                html += "</ul>"
 
-        # Cool-down
-        html += "<h3>🧘‍♂️ Cool-down</h3><ul>"
-        for exercise in workout_data["cool_down"]:
-            html += f"<li>{exercise}</li>"
-        html += "</ul>"
+            # Cool-down
+            if "cool_down" in workout_data and isinstance(workout_data["cool_down"], list):
+                html += "<h3>🧘‍♂️ Cool-down</h3><ul>"
+                for exercise in workout_data["cool_down"]:
+                    html += f"<li>{exercise}</li>"
+                html += "</ul>"
 
-        html += "</div>"
-        return html
+            html += "</div>"
+            return html
+
+        except Exception as e:
+            return f"Error formatting workout: {str(e)}"
