@@ -640,10 +640,11 @@ def show_profile():
         return
 
     # Create tabs for different profile sections
-    tab1, tab2, tab3 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "Profile Info", 
         "Avatar Customization",
-        "Wearable Devices"  # New tab
+        "Wearable Devices",
+        "Data Export"  # New tab
     ])
 
     with tab1:
@@ -760,6 +761,97 @@ def show_profile():
                 # Initialize and render wearable wizard
                 wizard = WearableWizard()
                 wizard.render_wizard()
+
+    with tab4:
+        st.subheader("🔄 Export Health Data")
+
+        # Initialize export manager
+        from utils.export_manager import HealthDataExporter
+
+        with Session(engine) as session:
+            exporter = HealthDataExporter(session)
+
+            # Create export form
+            with st.form("export_form"):
+                # Date range selection
+                col1, col2 = st.columns(2)
+                with col1:
+                    start_date = st.date_input(
+                        "Start Date",
+                        value=datetime.now().date().replace(day=1)  # First day of current month
+                    )
+                with col2:
+                    end_date = st.date_input(
+                        "End Date",
+                        value=datetime.now().date()
+                    )
+
+                # Data type selection
+                data_types = st.multiselect(
+                    "Select Data to Export",
+                    options=["Workout Data", "Wearable Data"],
+                    default=["Workout Data"]
+                )
+
+                # Format selection
+                format_type = st.selectbox(
+                    "Export Format",
+                    options=["CSV", "JSON"],
+                    index=0
+                )
+
+                # For wearable data, allow metric selection
+                if "Wearable Data" in data_types:
+                    metrics = st.multiselect(
+                        "Select Metrics (for wearable data)",
+                        options=[m.value for m in WearableMetricType],
+                        default=[WearableMetricType.HEART_RATE.value]
+                    )
+
+                submitted = st.form_submit_button("Export Data")
+
+                if submitted:
+                    try:
+                        # Create a zip file if multiple files are being exported
+                        import zipfile
+                        from io import BytesIO
+
+                        zip_buffer = BytesIO()
+                        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+
+                            if "Workout Data" in data_types:
+                                workout_data = exporter.export_workout_data(
+                                    user_id=st.session_state.user_id,
+                                    format=format_type.lower(),
+                                    start_date=datetime.combine(start_date, datetime.min.time()),
+                                    end_date=datetime.combine(end_date, datetime.max.time())
+                                )
+                                zip_file.writestr(workout_data['filename'], workout_data['content'])
+
+                            if "Wearable Data" in data_types:
+                                wearable_data = exporter.export_wearable_data(
+                                    user_id=st.session_state.user_id,
+                                    format=format_type.lower(),
+                                    start_date=datetime.combine(start_date, datetime.min.time()),
+                                    end_date=datetime.combine(end_date, datetime.max.time()),
+                                    metrics=metrics if "Wearable Data" in data_types else None
+                                )
+                                zip_file.writestr(wearable_data['filename'], wearable_data['content'])
+
+                        # Prepare download button
+                        zip_buffer.seek(0)
+                        st.download_button(
+                            label="Download Exported Data",
+                            data=zip_buffer.getvalue(),
+                            file_name=f"health_data_export_{datetime.now().strftime('%Y%m%d')}.zip",
+                            mime="application/zip"
+                        )
+
+                        st.success("Data exported successfully!")
+
+                    except Exception as e:
+                        st.error(f"Error exporting data: {str(e)}")
+
 
 def _get_recovery_color(score):
     """Get background color for recovery score card."""
