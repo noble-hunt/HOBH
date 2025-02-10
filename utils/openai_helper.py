@@ -4,9 +4,7 @@ from openai import OpenAI
 
 class WorkoutGenerator:
     def __init__(self):
-        # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-        # do not change this unless explicitly requested by the user
-        self.model = "gpt-4o"
+        self.model = "gpt-4"  # Using standard GPT-4 model
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
     def generate_workout(self, movements):
