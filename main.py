@@ -123,7 +123,7 @@ def main():
     # Create container for logo
     logo_container = st.container()
     with logo_container:
-        logo_path = "attached_assets/BlackBack.png"
+        logo_path = "attached_assets/yHOBH.png"
         if Path(logo_path).exists():
             st.image(logo_path, use_container_width=False, width=250)
         else:
