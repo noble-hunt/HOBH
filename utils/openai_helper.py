@@ -126,13 +126,8 @@ class WorkoutGenerator:
                 html += "<div class='scaling-options'>"
                 html += "<h4>🔄 Scaling Options</h4>"
                 for option in workout_data['scaling_options']:
-                    html += f"""
-                    <div class='scale-level'>
-                        <strong>{option['level']}:</strong>
-                        <p>{option['adjustments']}</p>
-                    </div>
-                    """
-                html += "</div>"
+                    html += f"<div class='scale-level'><strong>{option['level']}:</strong><p>{option['adjustments']}</p></div>"
+                html += "</div></div>"
 
             else:
                 # Format traditional workout
