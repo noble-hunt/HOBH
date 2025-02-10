@@ -9,15 +9,29 @@ from datetime import datetime, date
 import time
 from typing import List
 
-# Add new enum class after existing enums
+# Add new metrics for various devices
 class WearableMetricType(str, enum.Enum):
+    # Common metrics
     HEART_RATE = 'HEART_RATE'
     STEPS = 'STEPS'
     CALORIES = 'CALORIES'
     SLEEP = 'SLEEP'
+    # Recovery metrics
     RECOVERY_SCORE = 'RECOVERY_SCORE'
     STRAIN_SCORE = 'STRAIN_SCORE'
     READINESS_SCORE = 'READINESS_SCORE'
+    # Whoop specific
+    DAY_STRAIN = 'DAY_STRAIN'
+    RESPIRATORY_RATE = 'RESPIRATORY_RATE'
+    # Oura specific
+    BODY_TEMPERATURE = 'BODY_TEMPERATURE'
+    HRV = 'HRV'
+    # Apple Watch specific
+    STAND_HOURS = 'STAND_HOURS'
+    EXERCISE_MINUTES = 'EXERCISE_MINUTES'
+    # Fitbit specific
+    ACTIVE_ZONE_MINUTES = 'ACTIVE_ZONE_MINUTES'
+    RESTING_HEART_RATE = 'RESTING_HEART_RATE'
 
 # Create Base class for declarative models
 Base = declarative_base()
@@ -72,13 +86,17 @@ class WearableDevice(Base):
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('user_profiles.id'), nullable=False)
-    device_type = Column(String, nullable=False)  # e.g., 'WHOOP', 'FITBIT', 'GARMIN'
+    device_type = Column(String, nullable=False)  # e.g., 'WHOOP', 'FITBIT', 'GARMIN', 'APPLE_WATCH', 'OURA'
     device_id = Column(String, unique=True)
     last_sync = Column(DateTime)
     auth_token = Column(String)
     refresh_token = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
+    # New fields for Apple Watch integration
+    team_id = Column(String)  # Apple Developer Team ID
+    key_id = Column(String)   # Apple Key ID
+    private_key = Column(String)  # Apple private key for authentication
 
     # Relationships
     user = relationship('UserProfile', back_populates='wearable_devices')
