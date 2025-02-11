@@ -20,7 +20,7 @@ from utils.wearable_wizard import WearableWizard
 from utils.gamification import GamificationManager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from utils.models import WearableDevice
+from utils.models import WearableDevice, WorkoutLog # Added import for WorkoutLog
 from utils.export_manager import HealthDataExporter
 
 st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
@@ -448,36 +448,43 @@ def show_log_movement():
 
                     if success:
                         # Get the latest workout log for the user
-                        recent_logs = data_manager.get_recent_logs(st.session_state.user_id, limit=1)
-                        if recent_logs:
-                            latest_workout = recent_logs[0]
-
-                            # Process gamification with the actual workout log
+                        try:
+                            # Create database engine and session
                             engine = create_engine(os.environ['DATABASE_URL'])
                             with Session(engine) as session:
-                                gamification_mgr = GamificationManager(session)
-                                progress = gamification_mgr.process_workout(latest_workout)
+                                # Get the actual WorkoutLog object from the database
+                                workout_log = session.query(WorkoutLog)\
+                                    .filter_by(user_id=st.session_state.user_id)\
+                                    .order_by(WorkoutLog.date.desc())\
+                                    .first()
 
-                                # Show XP gained with animation
-                                st.balloons()
-                                st.success(f"Movement logged successfully! +{progress.xp_gained} XP")
+                                if workout_log:
+                                    # Process gamification with the actual WorkoutLog object
+                                    gamification_mgr = GamificationManager(session)
+                                    progress = gamification_mgr.process_workout(workout_log)
 
-                                # Show level up notification if applicable
-                                if progress.new_level:
-                                    st.success(f"🎉 Level Up! You reached level {progress.new_level.level}: {progress.new_level.title}")
-                                    for reward in progress.new_level.rewards:
-                                        st.info(f"🎁 Reward Unlocked: {reward}")
+                                    # Show XP gained with animation
+                                    st.balloons()
+                                    st.success(f"Movement logged successfully! +{progress.xp_gained} XP")
 
-                                # Show achievement notifications
-                                if progress.achievements_earned:
-                                    for achievement in progress.achievements_earned:
-                                        st.success(f"🏆 Achievement Unlocked: {achievement}")
+                                    # Show level up notification if applicable
+                                    if progress.new_level:
+                                        st.success(f"🎉 Level Up! You reached level {progress.new_level.level}: {progress.new_level.title}")
+                                        for reward in progress.new_level.rewards:
+                                            st.info(f"🎁 Reward Unlocked: {reward}")
 
-                            # Show current difficulty level after logging
-                            current_difficulty = data_manager.get_movement_difficulty(movement)
-                            st.info(f"Current Difficulty: {current_difficulty.value}")
-                        else:
-                            st.error("Error retrieving the logged workout.")
+                                    # Show achievement notifications
+                                    if progress.achievements_earned:
+                                        for achievement in progress.achievements_earned:
+                                            st.success(f"🏆 Achievement Unlocked: {achievement}")
+
+                                    # Show current difficulty level after logging
+                                    current_difficulty = data_manager.get_movement_difficulty(movement)
+                                    st.info(f"Current Difficulty: {current_difficulty.value}")
+                                else:
+                                    st.error("Error retrieving the logged workout.")
+                        except Exception as e:
+                            st.error(f"Error processing workout achievements: {str(e)}")
 
                 except Exception as e:
                     st.error(f"Error logging movement: {str(e)}")
