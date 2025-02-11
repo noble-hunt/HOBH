@@ -58,7 +58,7 @@ class WorkoutGenerator:
                 "movements": [
                     {{
                         "name": "movement name",
-                        "details": "weight/height/variation details"
+                        "details": "weight/height/variation details or null"
                     }}
                 ],
                 "time_cap": "time cap in minutes",
@@ -114,7 +114,7 @@ class WorkoutGenerator:
                 html += "<div class='movements'>"
                 for movement in workout_data['movements']:
                     html += f"<p>{movement['name']}"
-                    if movement['details']:
+                    if movement.get('details'):  # Use .get() to safely access 'details'
                         html += f" <span class='movement-details'>({movement['details']})</span>"
                     html += "</p>"
                 html += "</div>"
@@ -134,14 +134,14 @@ class WorkoutGenerator:
                 html = "<div class='workout-plan'>"
 
                 # Warm-up
-                if "warm_up" in workout_data and isinstance(workout_data["warm_up"], list):
+                if workout_data.get("warm_up") and isinstance(workout_data["warm_up"], list):
                     html += "<h3>🔥 Warm-up</h3><ul>"
                     for exercise in workout_data["warm_up"]:
                         html += f"<li>{exercise}</li>"
                     html += "</ul>"
 
                 # Main workout
-                if "main_workout" in workout_data and isinstance(workout_data["main_workout"], list):
+                if workout_data.get("main_workout") and isinstance(workout_data["main_workout"], list):
                     html += "<h3>💪 Main Workout</h3><ul>"
                     for exercise in workout_data["main_workout"]:
                         if all(k in exercise for k in ("movement", "sets", "reps", "intensity")):
@@ -149,7 +149,7 @@ class WorkoutGenerator:
                     html += "</ul>"
 
                 # Accessory work
-                if "accessory_work" in workout_data and isinstance(workout_data["accessory_work"], list):
+                if workout_data.get("accessory_work") and isinstance(workout_data["accessory_work"], list):
                     html += "<h3>🏋️‍♂️ Accessory Work</h3><ul>"
                     for exercise in workout_data["accessory_work"]:
                         if all(k in exercise for k in ("exercise", "sets", "reps")):
@@ -157,13 +157,13 @@ class WorkoutGenerator:
                     html += "</ul>"
 
                 # Cool-down
-                if "cool_down" in workout_data and isinstance(workout_data["cool_down"], list):
+                if workout_data.get("cool_down") and isinstance(workout_data["cool_down"], list):
                     html += "<h3>🧘‍♂️ Cool-down</h3><ul>"
                     for exercise in workout_data["cool_down"]:
                         html += f"<li>{exercise}</li>"
                     html += "</ul>"
 
-            html += "</div>"
+                html += "</div>"
             return html
 
         except Exception as e:
