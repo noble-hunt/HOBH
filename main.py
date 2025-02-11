@@ -436,7 +436,7 @@ def show_log_movement():
             if submitted:
                 try:
                     success_value = 1 if completed_successfully == "Successful" else 0
-                    workout = data_manager.log_movement(
+                    success = data_manager.log_movement(
                         user_id=st.session_state.user_id,
                         movement=movement,
                         weight=weight,
@@ -446,30 +446,38 @@ def show_log_movement():
                         completed_successfully=success_value
                     )
 
-                    # Process gamification
-                    engine = create_engine(os.environ['DATABASE_URL'])
-                    with Session(engine) as session:
-                        gamification_mgr = GamificationManager(session)
-                        progress = gamification_mgr.process_workout(workout)
+                    if success:
+                        # Get the latest workout log for the user
+                        recent_logs = data_manager.get_recent_logs(st.session_state.user_id, limit=1)
+                        if recent_logs:
+                            latest_workout = recent_logs[0]
 
-                        # Show XP gained with animation
-                        st.balloons()
-                        st.success(f"Movement logged successfully! +{progress.xp_gained} XP")
+                            # Process gamification with the actual workout log
+                            engine = create_engine(os.environ['DATABASE_URL'])
+                            with Session(engine) as session:
+                                gamification_mgr = GamificationManager(session)
+                                progress = gamification_mgr.process_workout(latest_workout)
 
-                        # Show level up notification if applicable
-                        if progress.new_level:
-                            st.success(f"🎉 Level Up! You reached level {progress.new_level.level}: {progress.new_level.title}")
-                            for reward in progress.new_level.rewards:
-                                st.info(f"🎁 Reward Unlocked: {reward}")
+                                # Show XP gained with animation
+                                st.balloons()
+                                st.success(f"Movement logged successfully! +{progress.xp_gained} XP")
 
-                        # Show achievement notifications
-                        if progress.achievements_earned:
-                            for achievement in progress.achievements_earned:
-                                st.success(f"🏆 Achievement Unlocked: {achievement}")
+                                # Show level up notification if applicable
+                                if progress.new_level:
+                                    st.success(f"🎉 Level Up! You reached level {progress.new_level.level}: {progress.new_level.title}")
+                                    for reward in progress.new_level.rewards:
+                                        st.info(f"🎁 Reward Unlocked: {reward}")
 
-                    # Show current difficulty level after logging
-                    current_difficulty = data_manager.get_movement_difficulty(movement)
-                    st.info(f"Current Difficulty: {current_difficulty.value}")
+                                # Show achievement notifications
+                                if progress.achievements_earned:
+                                    for achievement in progress.achievements_earned:
+                                        st.success(f"🏆 Achievement Unlocked: {achievement}")
+
+                            # Show current difficulty level after logging
+                            current_difficulty = data_manager.get_movement_difficulty(movement)
+                            st.info(f"Current Difficulty: {current_difficulty.value}")
+                        else:
+                            st.error("Error retrieving the logged workout.")
 
                 except Exception as e:
                     st.error(f"Error logging movement: {str(e)}")
@@ -842,7 +850,7 @@ def show_profile():
         # Background selection
         st.subheader("Background")
         background = st.selectbox(
-            "Choose your background",
+            "Chooseyour background",
             ["None", "Gradient", "Pattern", "Custom"],
             index=0
         )
