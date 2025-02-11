@@ -364,3 +364,158 @@ class DataManager:
         except Exception as e:
             print(f"Error calculating workout streak: {str(e)}")
             return 0
+
+    def get_training_load(self, user_id):
+        """Get training load status for a user."""
+        try:
+            with self._session_scope() as session:
+                # Get recent workout logs for load calculation
+                recent_logs = session.query(WorkoutLog)\
+                    .filter_by(user_id=user_id)\
+                    .order_by(WorkoutLog.date.desc())\
+                    .limit(14)\
+                    .all()
+
+                if not recent_logs:
+                    return None
+
+                # Calculate metrics
+                current_load = self._calculate_training_load(recent_logs)
+                recovery_score = self._calculate_recovery_score(recent_logs)
+                readiness_score = min(100, int((recovery_score + 70) / 2))  # Simplified calculation
+
+                # Determine status messages
+                load_status = self._get_load_status(current_load)
+                recovery_status = self._get_recovery_status(recovery_score)
+                readiness_status = self._get_readiness_status(readiness_score)
+
+                return {
+                    'current_load': current_load,
+                    'load_status': load_status,
+                    'recovery_score': recovery_score,
+                    'recovery_status': recovery_status,
+                    'readiness_score': readiness_score,
+                    'readiness_status': readiness_status
+                }
+
+        except Exception as e:
+            print(f"Error getting training load: {str(e)}")
+            return None
+
+    def _calculate_training_load(self, logs):
+        """Calculate training load from recent workout logs."""
+        if not logs:
+            return 0.0
+
+        total_load = 0
+        for log in logs:
+            # Simple load calculation: weight * reps * difficulty multiplier
+            difficulty_multiplier = {
+                'BEGINNER': 1.0,
+                'INTERMEDIATE': 1.2,
+                'ADVANCED': 1.5,
+                'ELITE': 2.0
+            }.get(log.difficulty_level, 1.0)
+
+            daily_load = log.weight * log.reps * difficulty_multiplier
+            total_load += daily_load
+
+        return total_load / len(logs)  # Average daily load
+
+    def _calculate_recovery_score(self, logs):
+        """Calculate recovery score based on recent workout intensity."""
+        if not logs:
+            return 100
+
+        # Simple recovery calculation based on recent workout intensity
+        recent_intensity = sum(log.weight * log.reps for log in logs[:3]) / 3
+        base_recovery = 100 - min(recent_intensity / 100, 50)  # Cap the reduction at 50%
+        return max(0, min(100, int(base_recovery)))
+
+    def _get_load_status(self, load):
+        """Get status message based on training load."""
+        if load < 500:
+            return "Low - You can increase intensity"
+        elif load < 1000:
+            return "Optimal - Good training balance"
+        else:
+            return "High - Consider recovery"
+
+    def _get_recovery_status(self, score):
+        """Get status message based on recovery score."""
+        if score >= 80:
+            return "Well Recovered"
+        elif score >= 60:
+            return "Moderately Recovered"
+        else:
+            return "Recovery Needed"
+
+    def _get_readiness_status(self, score):
+        """Get status message based on readiness score."""
+        if score >= 80:
+            return "Ready for High Intensity"
+        elif score >= 60:
+            return "Ready for Moderate Training"
+        else:
+            return "Light Training Recommended"
+
+    def get_movement_status(self, user_id):
+        """Get movement progress status for primary movements."""
+        try:
+            with self._session_scope() as session:
+                movement_stats = []
+
+                for movement_name in self.primary_movements:
+                    # Get movement record
+                    movement = session.query(Movement)\
+                        .filter(func.lower(Movement.name) == func.lower(movement_name))\
+                        .first()
+
+                    if movement:
+                        # Get personal best
+                        max_weight = session.query(func.max(WorkoutLog.weight))\
+                            .filter_by(
+                                user_id=user_id,
+                                movement_id=movement.id
+                            ).scalar() or 0
+
+                        # Calculate progress to next level
+                        current_level = DifficultyLevel(movement.current_difficulty)
+                        progress = self._calculate_level_progress(
+                            session, user_id, movement.id, current_level
+                        )
+
+                        movement_stats.append({
+                            'name': movement_name,
+                            'current_level': current_level.value,
+                            'personal_best': max_weight,
+                            'progress_to_next': progress
+                        })
+
+                return movement_stats
+
+        except Exception as e:
+            print(f"Error getting movement status: {str(e)}")
+            return None
+
+    def _calculate_level_progress(self, session, user_id, movement_id, current_level):
+        """Calculate progress percentage to next level."""
+        try:
+            # Get recent successful workouts
+            recent_successful = session.query(WorkoutLog)\
+                .filter_by(
+                    user_id=user_id,
+                    movement_id=movement_id,
+                    completed_successfully=1
+                )\
+                .order_by(WorkoutLog.date.desc())\
+                .limit(3)\
+                .count()
+
+            # Calculate progress percentage (each successful workout is worth 33.33%)
+            progress = min(100, int((recent_successful / 3) * 100))
+            return progress
+
+        except Exception as e:
+            print(f"Error calculating level progress: {str(e)}")
+            return 0
