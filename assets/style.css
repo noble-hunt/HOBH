@@ -65,6 +65,49 @@
     display: block !important;
 }
 
+/* Status colors for metric cards */
+.metric-card {
+    padding: 1rem;
+    border-radius: 10px;
+    margin: 0.5rem 0;
+    background: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.metric-card h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #2C3E50;
+}
+
+.metric-card h2 {
+    margin: 0.5rem 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.metric-card p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+/* Status color variants */
+.metric-card.status-green {
+    background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+    border-left: 4px solid #4CAF50;
+}
+
+.metric-card.status-orange {
+    background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+    border-left: 4px solid #FF9800;
+}
+
+.metric-card.status-red {
+    background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+    border-left: 4px solid #F44336;
+}
+
 /* Override Streamlit's button styles in the navigation menu */
 [data-testid="stSidebar"] [data-testid="baseButton-secondary"] {
     background-color: transparent !important;

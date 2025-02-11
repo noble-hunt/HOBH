@@ -294,10 +294,29 @@ def show_home():
                 if training_load:
                     cols = st.columns(3)
 
+                    # Determine color classes based on values
+                    load_color = "green"
+                    if training_load['current_load'] >= 1000:
+                        load_color = "red"
+                    elif training_load['current_load'] >= 500:
+                        load_color = "orange"
+
+                    recovery_color = "red"
+                    if training_load['recovery_score'] >= 66:
+                        recovery_color = "green"
+                    elif training_load['recovery_score'] >= 36:
+                        recovery_color = "orange"
+
+                    readiness_color = "red"
+                    if training_load['readiness_score'] >= 66:
+                        readiness_color = "green"
+                    elif training_load['readiness_score'] >= 36:
+                        readiness_color = "orange"
+
                     with cols[0]:
                         st.markdown(
                             f"""
-                            <div class="metric-card load">
+                            <div class="metric-card load status-{load_color}">
                                 <h3>Current Load</h3>
                                 <h2>{training_load['current_load']:.1f}</h2>
                                 <p>{training_load['load_status']}</p>
@@ -309,7 +328,7 @@ def show_home():
                     with cols[1]:
                         st.markdown(
                             f"""
-                            <div class="metric-card recovery">
+                            <div class="metric-card recovery status-{recovery_color}">
                                 <h3>Recovery Status</h3>
                                 <h2>{training_load['recovery_score']}%</h2>
                                 <p>{training_load['recovery_status']}</p>
@@ -321,7 +340,7 @@ def show_home():
                     with cols[2]:
                         st.markdown(
                             f"""
-                            <div class="metric-card readiness">
+                            <div class="metric-card readiness status-{readiness_color}">
                                 <h3>Readiness</h3>
                                 <h2>{training_load['readiness_score']}%</h2>
                                 <p>{training_load['readiness_status']}</p>
