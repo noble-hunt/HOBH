@@ -5,13 +5,14 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+import json
 
 from utils.models import WorkoutLog, Movement
 from utils.recovery_calculator import RecoveryCalculator
 
 class RecoveryAdvisor:
     """Generates personalized recovery recommendations using AI."""
-    
+
     def __init__(self, session: Session):
         """Initialize the recovery advisor with database session."""
         self.session = session
@@ -32,7 +33,7 @@ class RecoveryAdvisor:
 
         # Get recent workout data
         recent_workouts = self._get_recent_workouts(user_id, current_date)
-        
+
         # Get current recovery and strain scores
         recovery_data = self.recovery_calculator.calculate_recovery_score(
             user_id, current_date
@@ -43,7 +44,7 @@ class RecoveryAdvisor:
 
         # Prepare workout summary for AI context
         workout_summary = self._prepare_workout_summary(recent_workouts)
-        
+
         # Generate recommendations using Claude
         recommendations = self._generate_ai_recommendations(
             workout_summary,
@@ -52,10 +53,11 @@ class RecoveryAdvisor:
         )
 
         return {
-            'recommendations': recommendations,
+            'recommendations': json.dumps(recommendations),  # Convert the dict to JSON string
             'recovery_score': recovery_data['recovery_score'],
             'strain_score': strain_data['strain_score'],
-            'recent_workouts': len(recent_workouts)
+            'recent_workouts': len(recent_workouts),
+            'generated_at': datetime.now().isoformat()
         }
 
     def _get_recent_workouts(
@@ -66,7 +68,7 @@ class RecoveryAdvisor:
     ) -> List[WorkoutLog]:
         """Get user's recent workouts."""
         start_date = current_date - timedelta(days=days)
-        
+
         return self.session.query(WorkoutLog)\
             .join(Movement)\
             .filter(
@@ -137,20 +139,19 @@ Format your response as a JSON object with these sections as keys."""
                 temperature=0.7
             )
 
-            # Extract and parse the JSON response
-            recommendations = response.content[0].text
-
-            # Add metadata
-            recommendations_with_meta = {
-                'generated_at': datetime.now().isoformat(),
-                'recommendations': recommendations,
-                'metrics_used': {
-                    'recovery_score': recovery_data['recovery_score'],
-                    'strain_score': strain_data['strain_score']
+            # Parse the response and return as a dictionary
+            try:
+                recommendations = response.content[0].text
+                return json.loads(recommendations)  # Parse JSON string to dict
+            except json.JSONDecodeError:
+                # If JSON parsing fails, create a structured response
+                return {
+                    "Recovery Activities": "Focus on light mobility work and stretching.",
+                    "Nutrition": "Maintain balanced meals with adequate protein.",
+                    "Rest": "Aim for 7-9 hours of sleep.",
+                    "Next Training": "Consider intensity based on recovery score.",
+                    "Warning Signs": "Monitor for unusual fatigue or discomfort."
                 }
-            }
-
-            return recommendations_with_meta
 
         except Exception as e:
             print(f"Error generating recommendations: {str(e)}")

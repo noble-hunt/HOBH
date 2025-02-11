@@ -398,8 +398,8 @@ def show_home():
                 if 'error' in recommendations:
                     st.warning(recommendations['fallback_message'])
                 else:
-                    # Parse the recommendations JSON
-                    rec_data = json.loads(recommendations['recommendations'])
+                    # Parse the recommendations JSON string
+                    rec_data = json.loads(recommendations['recommendations'])  # Only parse once
 
                     # Create expandable sections for each recommendation type
                     with st.expander("🎯 Recovery Activities", expanded=True):
@@ -423,6 +423,7 @@ def show_home():
                     )
         except Exception as e:
             st.error(f"Unable to load recovery recommendations: {str(e)}")
+            print(f"Recovery recommendation error details: {str(e)}")  # Added detailed logging
 
         st.markdown("---")  # Add separator before next section
 
@@ -841,7 +842,7 @@ def show_achievements():
                 st.markdown(
                     f"""
                     <div class="movement-status-card" style="background-color: #FFD700;">
-                        <h5 style="margin: 0;">🏅 {achievement['name']}</h5>
+                        <h5 style="margin:0;">🏅 {achievement['name']}</h5>
                         <p style="margin: 5px 0;">{achievement['description']}</p>
                         <p style="margin: 0;font-size: 0.8em;">
                             Earned: {achievement['date_earned'].strftime('%Y-%m-%d')}
