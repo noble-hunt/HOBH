@@ -20,7 +20,7 @@ from utils.wearable_wizard import WearableWizard
 from utils.gamification import GamificationManager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from utils.models import WearableDevice, WorkoutLog
+from utils.models import WearableDevice, WorkoutLog, UserProfile # Added import for UserProfile
 from utils.export_manager import HealthDataExporter
 from utils.recovery_advisor import RecoveryAdvisor # Added import for RecoveryAdvisor
 import json # Added import for JSON handling
@@ -38,7 +38,6 @@ data_manager = DataManager()
 social_manager = SocialManager()
 auth_manager = AuthManager()
 quote_generator = QuoteGenerator()
-avatar_manager = AvatarManager()
 
 # Initialize session state
 if 'user_id' not in st.session_state:
@@ -165,7 +164,6 @@ def main():
         show_achievements()
     elif st.session_state.current_page == "Profile":
         show_profile()
-
 
 
 def show_social_hub():
@@ -750,7 +748,7 @@ def show_profile():
                 st.warning(recommendations['fallback_message'])
             else:
                 # Parse the recommendations JSON string
-                rec_data = json.loads(recommendations['recommendations'])  # Only parse once
+                rec_data = json.loads(recommendations['recommendations'])
 
                 # Create expandable sections for each recommendation type
                 with st.expander("🎯 Recovery Activities", expanded=True):
@@ -772,92 +770,105 @@ def show_profile():
                 st.caption(
                     f"Last updated: {datetime.fromisoformat(recommendations['generated_at']).strftime('%Y-%m-%d %H:%M')}"
                 )
-    except Exception as e:
-        st.error(f"Unable to load recovery recommendations: {str(e)}")
-        print(f"Recovery recommendation error details: {str(e)}")  # Added detailed logging
 
-    st.markdown("---")  # Add separator before next section
+            st.markdown("---")  # Add separator before next section
 
-    # Profile Information Section
-    st.subheader("Profile Information")
-    try:
-        # Get user's avatar
-        avatar_image = avatar_manager.get_avatar_image(st.session_state.user_id)
-        if avatar_image:
-            st.image(avatar_image, width=150)
-    except Exception as e:
-        st.error(f"Error loading avatar: {str(e)}")
-
-    # Profile Stats
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Total Workouts", "125")
-        st.metric("Active Days", "45")
-    with col2:
-        st.metric("Average Recovery", "7.5")
-        st.metric("Current Streak", "5 days")
-
-    # Wearable Device Integration
-    st.subheader("🔌 Connected Devices")
-
-    # Initialize wearable manager
-    wearable_manager = WearableManager()
-
-    # Get connected devices
-    connected_devices = wearable_manager.get_connected_devices(st.session_state.user_id)
-
-    if connected_devices:
-        for device in connected_devices:
-            with st.expander(f"{device.name} ({device.type})"):
-                st.write(f"Status: {device.status}")
-                st.write(f"Last Sync: {device.last_sync}")
-
-                # Add disconnect button
-                if st.button(f"Disconnect {device.name}", key=f"disconnect_{device.id}"):
-                    try:
-                        wearable_manager.disconnect_device(device.id)
-                        st.success(f"Successfully disconnected {device.name}")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error disconnecting device: {str(e)}")
-    else:
-        st.info("No devices connected")
-
-        # Add device connection wizard
-        if st.button("Connect a Device"):
+            # Profile Information Section
+            st.subheader("Profile Information")
             try:
-                wizard = WearableWizard()
-                wizard.start_connection_flow()
+                # Initialize managers with session
+                avatar_manager = AvatarManager(session)
+
+                # Get user profile info
+                user_profile = session.query(UserProfile).filter_by(id=st.session_state.user_id).first()
+                if user_profile:
+                    # Display basic info
+                    st.write(f"Username: {user_profile.username}")
+
+                    # Profile Stats
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("Total Workouts", len(user_profile.workout_logs))
+                        st.metric("Active Days", user_profile.active_days or 0)
+                    with col2:
+                        st.metric("Average Recovery", f"{user_profile.avg_recovery or 0:.1f}")
+                        st.metric("Current Streak", f"{user_profile.current_streak or 0} days")
+
             except Exception as e:
-                st.error(f"Error starting device connection: {str(e)}")
+                st.error(f"Error loading profile information: {str(e)}")
 
-    # Data Export Section
-    st.subheader("📊 Export Data")
-
-    export_manager = HealthDataExporter()
-
-    # Select data to export
-    export_options = st.multiselect(
-        "Select data to export",
-        ["Workouts", "Recovery Scores", "Device Metrics", "Achievements"],
-        key="export_data"
-    )
-
-    if export_options:
-        if st.button("Export Selected Data"):
+            # Wearable Device Integration
+            st.subheader("🔌 Connected Devices")
             try:
-                exported_data = export_manager.export_health_data(
-                    user_id=st.session_state.user_id,
-                    data_types=export_options
-                )
-                st.download_button(
-                    "Download Export",
-                    exported_data,
-                    file_name="health_data_export.json",
-                    mime="application/json"
-                )
+                # Initialize wearable manager with session
+                wearable_manager = WearableManager(session)
+
+                # Get connected devices
+                connected_devices = wearable_manager.get_connected_devices(st.session_state.user_id)
+
+                if connected_devices:
+                    for device in connected_devices:
+                        with st.expander(f"{device.name} ({device.type})"):
+                            st.write(f"Status: {device.status}")
+                            st.write(f"Last Sync: {device.last_sync}")
+
+                            # Add disconnect button
+                            if st.button(f"Disconnect {device.name}", key=f"disconnect_{device.id}"):
+                                try:
+                                    wearable_manager.disconnect_device(device.id)
+                                    st.success(f"Successfully disconnected {device.name}")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error disconnecting device: {str(e)}")
+                else:
+                    st.info("No devices connected")
+
+                    # Add device connection wizard
+                    if st.button("Connect a Device"):
+                        try:
+                            wizard = WearableWizard(session)
+                            wizard.start_connection_flow()
+                        except Exception as e:
+                            st.error(f"Error starting device connection: {str(e)}")
+
             except Exception as e:
-                st.error(f"Error exporting data: {str(e)}")
+                st.error(f"Error loading connected devices: {str(e)}")
+
+            # Data Export Section
+            st.subheader("📊 Export Data")
+            try:
+                # Initialize export manager with session
+                export_manager = HealthDataExporter(session)
+
+                # Select data to export
+                export_options = st.multiselect(
+                    "Select data to export",
+                    ["Workouts", "Recovery Scores", "Device Metrics", "Achievements"],
+                    key="export_data"
+                )
+
+                if export_options:
+                    if st.button("Export Selected Data"):
+                        try:
+                            exported_data = export_manager.export_health_data(
+                                user_id=st.session_state.user_id,
+                                data_types=export_options
+                            )
+                            st.download_button(
+                                "Download Export",
+                                exported_data,
+                                exported_data,
+                                file_name="health_data_export.json",
+                                mime="application/json"
+                            )
+                        except Exception as e:
+                            st.error(f"Error exporting data: {str(e)}")
+
+            except Exception as e:
+                st.error(f"Error initializing data export: {str(e)}")
+
+    except Exception as e:
+        st.error(f"Error loading profile settings: {str(e)}")
 
 def _get_recovery_color(score):
     """Get background color for recovery score card."""

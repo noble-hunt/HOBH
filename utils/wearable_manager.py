@@ -1,7 +1,7 @@
 """Wearable device integration and data management."""
 import os
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import requests
@@ -25,6 +25,85 @@ class WearableManager:
             'APPLE_WATCH': self._sync_apple_watch_data,
             'OURA': self._sync_oura_data
         }
+
+    def get_connected_devices(self, user_id: int) -> List[Dict[str, Any]]:
+        """Get all connected devices for a user with their status."""
+        devices = self.session.query(WearableDevice)\
+            .filter(WearableDevice.user_id == user_id)\
+            .filter(WearableDevice.is_active == True)\
+            .all()
+
+        return [
+            {
+                'id': device.id,
+                'name': device.device_type,
+                'type': device.device_type,
+                'status': 'Connected' if self._validate_device_connection(device) else 'Disconnected',
+                'last_sync': device.last_sync
+            }
+            for device in devices
+        ]
+
+    def disconnect_device(self, device_id: int) -> bool:
+        """Disconnect a device by setting it as inactive."""
+        try:
+            device = self.session.query(WearableDevice).get(device_id)
+            if device:
+                device.is_active = False
+                self.session.commit()
+                return True
+            return False
+        except Exception as e:
+            print(f"Error disconnecting device: {str(e)}")
+            return False
+
+    def _validate_device_connection(self, device: WearableDevice) -> bool:
+        """Validate if a device's connection is still active."""
+        try:
+            if device.device_type == 'WHOOP':
+                return self._validate_whoop_token(device)
+            elif device.device_type == 'FITBIT':
+                return self._validate_fitbit_token(device)
+            elif device.device_type == 'GARMIN':
+                return self._validate_garmin_token(device)
+            elif device.device_type == 'OURA':
+                return self._validate_oura_token(device)
+            return True  # Default to True for APPLE_WATCH
+        except:
+            return False
+
+    def _validate_whoop_token(self, device: WearableDevice) -> bool:
+        """Validate WHOOP token."""
+        try:
+            response = requests.get(
+                "https://api.whoop.com/v2/user",
+                headers={'Authorization': f'Bearer {device.auth_token}'}
+            )
+            return response.status_code == 200
+        except:
+            return False
+
+    def _validate_fitbit_token(self, device: WearableDevice) -> bool:
+        """Validate Fitbit token."""
+        try:
+            response = requests.get(
+                "https://api.fitbit.com/1/user/-/profile.json",
+                headers={'Authorization': f'Bearer {device.auth_token}'}
+            )
+            return response.status_code == 200
+        except:
+            return False
+
+    def _validate_oura_token(self, device: WearableDevice) -> bool:
+        """Validate Oura token."""
+        try:
+            response = requests.get(
+                "https://api.ouraring.com/v2/usercollection/personal_info",
+                headers={'Authorization': f'Bearer {device.auth_token}'}
+            )
+            return response.status_code == 200
+        except:
+            return False
 
     def register_device(
         self,
