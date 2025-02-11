@@ -129,17 +129,18 @@ class UserProfile(Base):
     avatar_background = Column(String, default='#F0F2F6')
     avatar_features = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
-    # Add new gamification fields
+    # Add new profile stats fields
     total_xp = Column(Integer, default=0)
     current_level = Column(Integer, default=1)
     last_activity_date = Column(DateTime)
     streak_count = Column(Integer, default=0)
     highest_streak = Column(Integer, default=0)
+    active_days = Column(Integer, default=0)
+    avg_recovery = Column(Float, default=0.0)
+    current_streak = Column(Integer, default=0)
 
-    # Add wearable_devices relationship
+    # Relationships
     wearable_devices = relationship('WearableDevice', back_populates='user')
-
-    # Existing relationships
     followers = relationship(
         'UserProfile',
         secondary=following,

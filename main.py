@@ -729,13 +729,10 @@ def show_achievements():
 def show_profile():
     st.header("👤 Profile Settings")
 
-    # Add Recovery Recommendations Section at the top
-    st.subheader("🔄 Recovery Recommendations")
-
-    try:
-        # Create database session
-        engine = create_engine(os.environ['DATABASE_URL'])
-        with Session(engine) as session:
+    # Create database engine and session
+    engine = create_engine(os.environ['DATABASE_URL'])
+    with Session(engine) as session:
+        try:
             # Initialize recovery advisor
             recovery_advisor = RecoveryAdvisor(session)
 
@@ -784,6 +781,8 @@ def show_profile():
                 if user_profile:
                     # Display basic info
                     st.write(f"Username: {user_profile.username}")
+                    if user_profile.bio:
+                        st.write(f"Bio: {user_profile.bio}")
 
                     # Profile Stats
                     col1, col2 = st.columns(2)
@@ -794,8 +793,82 @@ def show_profile():
                         st.metric("Average Recovery", f"{user_profile.avg_recovery or 0:.1f}")
                         st.metric("Current Streak", f"{user_profile.current_streak or 0} days")
 
+                    # Avatar Customization
+                    st.subheader("🎨 Avatar Customization")
+
+                    # Get current avatar settings
+                    current_settings = avatar_manager.get_avatar_settings(st.session_state.user_id)
+
+                    # Get available options
+                    options = avatar_manager.get_available_options()
+
+                    # Create customization form
+                    with st.form("avatar_customization"):
+                        # Style selection
+                        selected_style = st.selectbox(
+                            "Avatar Style",
+                            options['styles'],
+                            index=options['styles'].index(current_settings['style']) if current_settings else 0
+                        )
+
+                        # Background color
+                        background_color = st.color_picker(
+                            "Background Color",
+                            current_settings['background'] if current_settings else '#F0F2F6'
+                        )
+
+                        # Features customization
+                        st.subheader("Features")
+                        features = {}
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            features['skin_color'] = st.selectbox(
+                                "Skin Color",
+                                options['features']['skin_color'],
+                                index=options['features']['skin_color'].index(
+                                    current_settings['features'].get('skin_color', 'light')
+                                ) if current_settings and 'features' in current_settings else 0
+                            )
+
+                            features['hair_color'] = st.selectbox(
+                                "Hair Color",
+                                options['features']['hair_color']
+                            )
+
+                            features['hair_style'] = st.selectbox(
+                                "Hair Style",
+                                options['features']['hair_style']
+                            )
+
+                        with col2:
+                            features['facial_hair'] = st.selectbox(
+                                "Facial Hair",
+                                options['features']['facial_hair']
+                            )
+
+                            features['accessories'] = st.selectbox(
+                                "Accessories",
+                                options['features']['accessories']
+                            )
+
+                        # Submit button
+                        submitted = st.form_submit_button("Update Avatar")
+
+                        if submitted:
+                            success, message = avatar_manager.update_avatar(
+                                st.session_state.user_id,
+                                selected_style,
+                                background_color,
+                                features
+                            )
+                            if success:
+                                st.success(message)
+                            else:
+                                st.error(message)
+
             except Exception as e:
-                st.error(f"Error loading profile information: {str(e)}")
+                                st.error(f"Error loading profile information: {str(e)}")
 
             # Wearable Device Integration
             st.subheader("🔌 Connected Devices")
@@ -867,8 +940,8 @@ def show_profile():
             except Exception as e:
                 st.error(f"Error initializing data export: {str(e)}")
 
-    except Exception as e:
-        st.error(f"Error loading profile settings: {str(e)}")
+        except Exception as e:
+            st.error(f"Error loading profile settings: {str(e)}")
 
 def _get_recovery_color(score):
     """Get background color for recovery score card."""
