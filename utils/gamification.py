@@ -50,12 +50,12 @@ class GamificationManager:
             "Novice Lifter", "Amateur Athlete", "Dedicated Trainee",
             "Elite Performer", "Master of Iron", "Olympic Prospect"
         ]
-        
+
         for level in range(1, 31):
             # XP required increases exponentially
             xp_required = int(base_xp * (1.5 ** (level - 1)))
             title_index = min(len(titles) - 1, (level - 1) // 5)
-            
+
             # Define rewards for each level
             rewards = [
                 f"'{titles[title_index]}' Title Unlocked",
@@ -64,33 +64,33 @@ class GamificationManager:
                 "Special Effect Animation" if level % 10 == 0 else None
             ]
             rewards = [r for r in rewards if r]
-            
+
             levels[level] = LevelInfo(
                 level=level,
                 title=f"{titles[title_index]} {level}",
                 xp_required=xp_required,
                 rewards=rewards
             )
-        
+
         return levels
 
     def calculate_workout_xp(self, workout: WorkoutLog) -> int:
         """Calculate XP for a completed workout."""
         base_xp = 100  # Base XP for any workout
-        
-        # Apply difficulty multiplier
+
+        # Apply difficulty multiplier using difficulty_level instead of difficulty
         difficulty_multiplier = self.xp_multipliers.get(
-            workout.difficulty,
+            workout.difficulty_level,
             1.0
         )
-        
+
         # Calculate volume-based bonus
         volume = workout.weight * workout.reps
         volume_bonus = min(100, volume / 10)  # Cap volume bonus at 100 XP
-        
-        # Success bonus
-        success_bonus = 50 if workout.completed else 0
-        
+
+        # Success bonus using completed_successfully
+        success_bonus = 50 if workout.completed_successfully else 0
+
         total_xp = int((base_xp + volume_bonus) * difficulty_multiplier + success_bonus)
         return total_xp
 
@@ -110,28 +110,28 @@ class GamificationManager:
         user_profile = self.session.query(UserProfile)\
             .filter_by(id=workout.user_id)\
             .first()
-        
+
         if not user_profile:
             raise ValueError("User profile not found")
-            
+
         # Calculate XP gained
         xp_gained = self.calculate_workout_xp(workout)
-        
+
         # Update total XP
         old_total_xp = user_profile.total_xp or 0
         new_total_xp = old_total_xp + xp_gained
         user_profile.total_xp = new_total_xp
-        
+
         # Check for level up
         old_level = self.get_current_level(old_total_xp)
         new_level = self.get_current_level(new_total_xp)
-        
+
         # Check for achievements
         achievements_earned = self._check_achievements(workout)
-        
+
         # Save changes
         self.session.commit()
-        
+
         return ProgressUpdate(
             xp_gained=xp_gained,
             new_level=new_level if new_level.level > old_level.level else None,
@@ -142,7 +142,7 @@ class GamificationManager:
     def _check_achievements(self, workout: WorkoutLog) -> List[str]:
         """Check and award achievements for a workout."""
         earned_achievements = []
-        
+
         # Check weight-based achievements
         if workout.weight >= 100:
             self._award_achievement(
@@ -153,7 +153,7 @@ class GamificationManager:
                 workout.movement.name if workout.movement else None
             )
             earned_achievements.append("Weight Master")
-            
+
         # Check consistency achievements
         recent_workouts = self.session.query(WorkoutLog)\
             .filter(
@@ -162,7 +162,7 @@ class GamificationManager:
             )\
             .distinct(func.date(WorkoutLog.date))\
             .count()
-            
+
         if recent_workouts >= 7:
             self._award_achievement(
                 workout.user_id,
@@ -171,9 +171,9 @@ class GamificationManager:
                 "Log workouts for 7 consecutive days"
             )
             earned_achievements.append("Consistency King")
-            
-        # Check difficulty-based achievements
-        if workout.difficulty == "ADVANCED":
+
+        # Check difficulty-based achievements using difficulty_level
+        if workout.difficulty_level == "ADVANCED":
             self._award_achievement(
                 workout.user_id,
                 "movement_expert",
@@ -182,8 +182,8 @@ class GamificationManager:
                 workout.movement.name if workout.movement else None
             )
             earned_achievements.append("Movement Expert")
-            
-        if workout.difficulty == "ELITE":
+
+        if workout.difficulty_level == "ELITE":
             self._award_achievement(
                 workout.user_id,
                 "elite_status",
@@ -192,7 +192,7 @@ class GamificationManager:
                 workout.movement.name if workout.movement else None
             )
             earned_achievements.append("Elite Status")
-            
+
         return earned_achievements
 
     def _award_achievement(
@@ -208,7 +208,7 @@ class GamificationManager:
         achievement = self.session.query(Achievement)\
             .filter_by(achievement_id=achievement_id)\
             .first()
-            
+
         if not achievement:
             # Create achievement if it doesn't exist
             achievement = Achievement(
@@ -218,7 +218,7 @@ class GamificationManager:
             )
             self.session.add(achievement)
             self.session.flush()
-            
+
         # Check if user already earned this achievement
         earned = self.session.query(EarnedAchievement)\
             .filter_by(
@@ -226,7 +226,7 @@ class GamificationManager:
                 achievement_id=achievement.id
             )\
             .first()
-            
+
         if not earned:
             # Award achievement
             earned_achievement = EarnedAchievement(
@@ -242,14 +242,14 @@ class GamificationManager:
         user_profile = self.session.query(UserProfile)\
             .filter_by(id=user_id)\
             .first()
-            
+
         if not user_profile:
             raise ValueError("User profile not found")
-            
+
         total_xp = user_profile.total_xp or 0
         current_level = self.get_current_level(total_xp)
         next_level = self.levels.get(current_level.level + 1)
-        
+
         # Calculate progress to next level
         progress = 0
         if next_level:
@@ -258,7 +258,7 @@ class GamificationManager:
             xp_progress = total_xp - xp_for_current
             xp_needed = xp_for_next - xp_for_current
             progress = min(100, int((xp_progress / xp_needed) * 100))
-            
+
         return {
             'total_xp': total_xp,
             'current_level': current_level,
@@ -275,7 +275,7 @@ class GamificationManager:
             .order_by(EarnedAchievement.date_earned.desc())\
             .limit(limit)\
             .all()
-            
+
         return [
             {
                 'name': earned.achievement.name,
