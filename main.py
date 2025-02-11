@@ -166,6 +166,7 @@ def main():
         show_profile()
 
 
+
 def show_social_hub():
     st.header("🤝 Social Hub")
 
@@ -282,6 +283,90 @@ def show_home():
                     )
             else:
                 st.info("Complete your first workout to start earning achievements!")
+
+            # Training Load Status
+            st.markdown('<h2 class="welcome-header">Training Load Status</h2>', unsafe_allow_html=True)
+
+            try:
+                # Get training load data
+                training_load = data_manager.get_training_load(st.session_state.user_id)
+
+                if training_load:
+                    cols = st.columns(3)
+
+                    with cols[0]:
+                        st.markdown(
+                            f"""
+                            <div class="metric-card load">
+                                <h3>Current Load</h3>
+                                <h2>{training_load['current_load']:.1f}</h2>
+                                <p>{training_load['load_status']}</p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with cols[1]:
+                        st.markdown(
+                            f"""
+                            <div class="metric-card recovery">
+                                <h3>Recovery Status</h3>
+                                <h2>{training_load['recovery_score']}%</h2>
+                                <p>{training_load['recovery_status']}</p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with cols[2]:
+                        st.markdown(
+                            f"""
+                            <div class="metric-card readiness">
+                                <h3>Readiness</h3>
+                                <h2>{training_load['readiness_score']}%</h2>
+                                <p>{training_load['readiness_status']}</p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+                else:
+                    st.info("Complete more workouts to see your training load status")
+
+            except Exception as e:
+                st.error(f"Error loading training status: {str(e)}")
+
+            # Movement Status Section
+            st.markdown('<h2 class="welcome-header">Movement Status</h2>', unsafe_allow_html=True)
+
+            try:
+                # Get movement status data
+                movement_stats = data_manager.get_movement_status(st.session_state.user_id)
+
+                if movement_stats and len(movement_stats) > 0:
+                    # Create grid layout for movement cards
+                    cols = st.columns(3)
+
+                    for idx, movement in enumerate(movement_stats):
+                        with cols[idx % 3]:
+                            st.markdown(
+                                f"""
+                                <div class="movement-status-card">
+                                    <h3>{movement['name']}</h3>
+                                    <p>Current Level: {movement['current_level']}</p>
+                                    <p>Best: {movement['personal_best']}kg</p>
+                                    <div class="progress-bar">
+                                        <div class="progress" style="width: {movement['progress_to_next']}%"></div>
+                                    </div>
+                                    <p class="progress-text">{movement['progress_to_next']}% to next level</p>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+                else:
+                    st.info("Start logging movements to see your progress")
+
+            except Exception as e:
+                st.error(f"Error loading movement status: {str(e)}")
 
         except Exception as e:
             st.error(f"Error loading fitness data: {str(e)}")
@@ -773,7 +858,7 @@ def show_profile():
             # Profile Information Section
             st.subheader("Profile Information")
             try:
-                # Initialize managers with session
+                ## Initialize managers with session
                 avatar_manager = AvatarManager(session)
 
                 # Get user profile info
