@@ -78,7 +78,7 @@ class GamificationManager:
         """Calculate XP for a completed workout."""
         base_xp = 100  # Base XP for any workout
 
-        # Apply difficulty multiplier using difficulty_level instead of difficulty
+        # Apply difficulty multiplier using difficulty_level
         difficulty_multiplier = self.xp_multipliers.get(
             workout.difficulty_level,
             1.0
@@ -198,21 +198,20 @@ class GamificationManager:
     def _award_achievement(
         self,
         user_id: int,
-        achievement_id: str,
+        achievement_code: str,
         name: str,
         description: str,
         movement_name: Optional[str] = None
     ) -> None:
         """Award an achievement to a user if not already earned."""
-        # Check if achievement already exists
+        # Check if achievement already exists by name instead of achievement_id
         achievement = self.session.query(Achievement)\
-            .filter_by(achievement_id=achievement_id)\
+            .filter_by(name=name)\
             .first()
 
         if not achievement:
             # Create achievement if it doesn't exist
             achievement = Achievement(
-                achievement_id=achievement_id,
                 name=name,
                 description=description
             )
@@ -223,7 +222,7 @@ class GamificationManager:
         earned = self.session.query(EarnedAchievement)\
             .filter_by(
                 user_id=user_id,
-                achievement_id=achievement.id
+                achievement_id=achievement.id  # Use achievement.id instead of achievement_id
             )\
             .first()
 
@@ -231,7 +230,7 @@ class GamificationManager:
             # Award achievement
             earned_achievement = EarnedAchievement(
                 user_id=user_id,
-                achievement_id=achievement.id,
+                achievement_id=achievement.id,  # Use achievement.id instead of achievement_id
                 date_earned=datetime.now(),
                 movement_name=movement_name
             )
