@@ -24,7 +24,8 @@ from utils.models import WearableDevice, WorkoutLog
 from utils.export_manager import HealthDataExporter
 from utils.recovery_advisor import RecoveryAdvisor # Added import for RecoveryAdvisor
 import json # Added import for JSON handling
-
+import zipfile
+from io import BytesIO
 
 st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
 
@@ -284,13 +285,12 @@ def show_home():
             else:
                 st.info("Complete your first workout to start earning achievements!")
 
-
         except Exception as e:
             st.error(f"Error loading fitness data: {str(e)}")
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Daily Motivation Quote (keep existing quote functionality)
+        # Daily Motivation Quote
         if (not st.session_state.daily_quote or 
             not st.session_state.quote_date or 
             st.session_state.quote_date.date() != datetime.now().date()):
@@ -320,143 +320,6 @@ def show_home():
             """,
             unsafe_allow_html=True
         )
-
-        # Add Recovery and Strain Score Section
-        st.subheader("Training Load Status")
-
-        # Initialize recovery calculator
-        recovery_calc = RecoveryCalculator()
-
-        # Create two columns for recovery and strain scores
-        col1, col2 = st.columns(2)
-
-        with col1:
-            # Calculate and display recovery score
-            recovery_data = recovery_calc.calculate_recovery_score(
-                st.session_state.user_id,
-                datetime.now()
-            )
-
-            # Create recovery score card
-            st.markdown(
-                f"""
-                <div style="padding: 1rem; background-color: {_get_recovery_color(recovery_data['recovery_score'])}; 
-                            border-radius: 10px; margin: 0.5rem 0;">
-                    <h3 style="margin: 0; color: white;">Recovery Score</h3>
-                    <h2 style="margin: 0.5rem 0; color: white;">{recovery_data['recovery_score']}/10</h2>
-                    <p style="margin: 0; color: white;">{recovery_data['message']}</p>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-        with col2:
-            # Calculate and display strain score
-            strain_data = recovery_calc.calculate_strain_score(
-                st.session_state.user_id,
-                datetime.now()
-            )
-
-            # Create strain score card
-            st.markdown(
-                f"""
-                <div style="padding: 1rem; background-color: {_get_strain_color(strain_data['strain_score'])}; 
-                            border-radius: 10px; margin: 0.5rem 0;">
-                    <h3 style="margin: 0; color: white;">Training Strain</h3>
-                    <h2 style="margin: 0.5rem 0; color: white;">{strain_data['strain_score']}/10</h2>
-                    <p style="margin: 0; color: white;">{strain_data['message']}</p>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-            # If there's training data, show the strain components
-            if strain_data['strain_score'] > 0:
-                with st.expander("View Strain Components"):
-                    components = strain_data['components']
-                    st.markdown(f"""
-                        - Volume Load: {components['volume']:.1f}/10
-                        - Relative Intensity: {components['intensity']:.1f}/10
-                        - Training Frequency: {components['frequency']:.1f}/10
-                    """)
-
-        # Add Recovery Recommendations Section
-        st.subheader("🔄 Recovery Recommendations")
-
-        try:
-            # Create database session
-            engine = create_engine(os.environ['DATABASE_URL'])
-            with Session(engine) as session:
-                # Initialize recovery advisor
-                recovery_advisor = RecoveryAdvisor(session)
-
-                # Get personalized recommendations
-                recommendations = recovery_advisor.get_recovery_recommendations(
-                    st.session_state.user_id
-                )
-
-                if 'error' in recommendations:
-                    st.warning(recommendations['fallback_message'])
-                else:
-                    # Parse the recommendations JSON string
-                    rec_data = json.loads(recommendations['recommendations'])  # Only parse once
-
-                    # Create expandable sections for each recommendation type
-                    with st.expander("🎯 Recovery Activities", expanded=True):
-                        st.write(rec_data['Recovery Activities'])
-
-                    with st.expander("🥗 Nutrition Recommendations"):
-                        st.write(rec_data['Nutrition'])
-
-                    with st.expander("😴 Rest & Sleep"):
-                        st.write(rec_data['Rest'])
-
-                    with st.expander("📋 Next Training Session"):
-                        st.write(rec_data['Next Training'])
-
-                    with st.expander("⚠️ Warning Signs"):
-                        st.write(rec_data['Warning Signs'])
-
-                    # Add timestamp
-                    st.caption(
-                        f"Last updated: {datetime.fromisoformat(recommendations['generated_at']).strftime('%Y-%m-%d %H:%M')}"
-                    )
-        except Exception as e:
-            st.error(f"Unable to load recovery recommendations: {str(e)}")
-            print(f"Recovery recommendation error details: {str(e)}")  # Added detailed logging
-
-        st.markdown("---")  # Add separator before next section
-
-        st.subheader("Movement Status")
-        cols = st.columns(4)
-        movements = data_manager.primary_movements
-        prs = data_manager.get_prs()
-
-        for idx, movement in enumerate(movements):
-            col = cols[idx % 4]
-            with col:
-                difficulty = data_manager.get_movement_difficulty(movement)
-
-                # Create colored box based on difficulty with more subtle gold colors
-                difficulty_colors = {
-                    'BEGINNER': '#FFF8DC',  # Cornsilk
-                    'INTERMEDIATE': '#FFE4B5',  # Moccasin
-                    'ADVANCED': '#DEB887',  # Burlywood
-                    'ELITE': '#DAA520'  # Goldenrod
-                }
-
-                st.markdown(
-                    f"""
-                    <div class="movement-status-card" style="background-color: {difficulty_colors[difficulty.value]};">
-                        <h5 style="margin: 0;">{movement}</h5>
-                        <p style="margin: 5px 0;">PR: {prs.get(movement, 0)} kg</p>
-                        <p style="margin: 0;">{difficulty.value}</p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-
 
 def show_log_movement():
     st.header("Log Your Lift")
@@ -866,221 +729,135 @@ def show_achievements():
     """)
 
 def show_profile():
-    st.header("🎯 Athlete Profile")
+    st.header("👤 Profile Settings")
 
-    if not st.session_state.user_id:
-        st.warning("Please log in to customize your profile.")
-        return
+    # Add Recovery Recommendations Section at the top
+    st.subheader("🔄 Recovery Recommendations")
 
-    # Create tabs for different profile sections
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "Profile Info",
-        "Avatar Customization",
-        "Wearable Devices",
-        "Data Export"
-    ])
-
-    with tab1:
-        user = auth_manager.get_user(st.session_state.user_id)
-        if user:
-            st.subheader(f"Welcome, {user['display_name'] or user['username']}!")
-
-            # Basic profile information
-            new_display_name = st.text_input("Display Name", value=user['display_name'] or "")
-            if st.button("Update Display Name"):
-                # Add display name update logic here
-                st.success("Display name updated successfully!")
-
-    with tab2:
-        st.subheader("Customize Your Avatar")
-
-        # Get current avatar settings
-        current_settings = avatar_manager.get_avatar_settings(st.session_state.user_id)
-
-        # Avatar style selection
-        st.subheader("Style")
-        style = st.selectbox(
-            "Choose your avatar style",
-            ["Default", "Pixel", "Anime", "Comic"],
-            index=0
-        )
-
-        # Background selection
-        st.subheader("Background")
-        background = st.selectbox(
-            "Chooseyour background",
-            ["None", "Gradient", "Pattern", "Custom"],
-            index=0
-        )
-
-        # Features customization
-        st.subheader("Features")
-        feature_cols =st.columns(2)
-        with feature_cols[0]:
-            hair_style = st.selectbox("Hair Style", ["Short", "Long", "Curly", "Wavy"])
-            eye_color = st.selectbox("Eye Color", ["Brown", "Blue", "Green", "Hazel"])
-        with feature_cols[1]:
-            skin_tone = st.selectbox("Skin Tone", ["Light", "Medium", "Dark", "Custom"])
-            accessories = st.multiselect("Accessories", ["Glasses", "Hat", "Earrings"])
-                    
-
-            if st.form_submit_button("Update Avatar"):
-                success, message = avatar_manager.update_avatar(
-                    st.session_state.user_id,
-                    style,
-                    background,
-                    {
-                        "hair_style": hair_style,
-                        "eye_color": eye_color,
-                        "skin_tone": skin_tone,
-                        "accessories": accessories
-                    }
-                )
-                if success:
-                    st.success(message)
-                else:
-                    st.error(message)
-
-            if current_settings:
-                st.subheader("Current Avatar")
-                st.image(avatar_manager.get_avatar_image(st.session_state.user_id))
-
-    with tab3:
-        st.subheader("🏃‍♂️ Wearable Devices")
-
-        # Initialize wearable manager with PostgreSQL connection
+    try:
+        # Create database session
         engine = create_engine(os.environ['DATABASE_URL'])
-
         with Session(engine) as session:
-            wearable_mgr = WearableManager(session)
+            # Initialize recovery advisor
+            recovery_advisor = RecoveryAdvisor(session)
 
-            # Create columns for metrics and device management
-            col1, col2 = st.columns([2, 1])
+            # Get personalized recommendations
+            recommendations = recovery_advisor.get_recovery_recommendations(
+                st.session_state.user_id
+            )
 
-            with col1:
-                st.subheader("Today's Metrics")
-                metrics = wearable_mgr.get_daily_summary(st.session_state.user_id)
+            if 'error' in recommendations:
+                st.warning(recommendations['fallback_message'])
+            else:
+                # Parse the recommendations JSON string
+                rec_data = json.loads(recommendations['recommendations'])  # Only parse once
 
-                if metrics:                    
-                    for metric_type, value in metrics.items():
-                        if isinstance(value, (int, float)):
-                            st.metric(
-                                label=metric_type.replace('_', ' ').title(),
-                                value=f"{value:,.0f}"
-                            )
-                else:
-                    st.info("No wearable data available for today")
+                # Create expandable sections for each recommendation type
+                with st.expander("🎯 Recovery Activities", expanded=True):
+                    st.write(rec_data['Recovery Activities'])
 
-            with col2:
-                st.subheader("Connected Devices")
-                devices = wearable_mgr.get_user_devices(st.session_state.user_id)
+                with st.expander("🥗 Nutrition Recommendations"):
+                    st.write(rec_data['Nutrition'])
 
-                for device in devices:
-                    st.markdown(f"""
-                        <div style='padding: 0.5rem; background-color: #f0f2f6; 
-                                border-radius: 5px; marginbottom: 0.5rem;'>
-                            <p style='margin: 0;'>
-                                <strong>{device.device_type}</strong><br>
-                                Last synced: {device.last_sync.strftime('%Y-%m-%d %H:%M') 
-                                            if device.last_sync else 'Never'}
-                            </p>
-                        </div>
-                    """, unsafe_allow_html=True)
+                with st.expander("😴 Rest & Sleep"):
+                    st.write(rec_data['Rest'])
 
-                # Add new device button
-                if st.button("➕ Connect New Device"):
-                    wizard = WearableWizard()
-                    wizard.render_wizard()
+                with st.expander("📋 Next Training Session"):
+                    st.write(rec_data['Next Training'])
 
-    with tab4:
-        st.subheader("🔄 Export Health Data")
+                with st.expander("⚠️ Warning Signs"):
+                    st.write(rec_data['Warning Signs'])
 
-        # Initialize export manager
-
-        with Session(engine) as session:
-            exporter = HealthDataExporter(session)
-
-            # Create export form
-            with st.form("export_form"):
-                # Date range selection
-                col1, col2 = st.columns(2)
-                with col1:
-                    start_date = st.date_input(
-                        "Start Date",
-                        value=datetime.now().date().replace(day=1)  # First day of current month
-                    )
-                with col2:
-                    end_date = st.date_input(
-                        "End Date",
-                        value=datetime.now().date()
-                    )
-
-                # Data type selection
-                data_types = st.multiselect(
-                    "Select Data to Export",
-                    options=["Workout Data", "Wearable Data"],
-                    default=["Workout Data"]
+                # Add timestamp
+                st.caption(
+                    f"Last updated: {datetime.fromisoformat(recommendations['generated_at']).strftime('%Y-%m-%d %H:%M')}"
                 )
+    except Exception as e:
+        st.error(f"Unable to load recovery recommendations: {str(e)}")
+        print(f"Recovery recommendation error details: {str(e)}")  # Added detailed logging
 
-                # Format selection
-                format_type = st.selectbox(
-                    "Export Format",
-                    options=["CSV", "JSON"],
-                    index=0
-                )
+    st.markdown("---")  # Add separator before next section
 
-                # For wearable data, allow metric selection
-                if "Wearable Data" in data_types:
-                    metrics = st.multiselect(
-                        "Select Metrics (for wearable data)",
-                        options=[m.value for m in WearableMetricType],
-                        default=[WearableMetricType.HEART_RATE.value]
-                    )
+    # Profile Information Section
+    st.subheader("Profile Information")
+    try:
+        # Get user's avatar
+        avatar_image = avatar_manager.get_avatar_image(st.session_state.user_id)
+        if avatar_image:
+            st.image(avatar_image, width=150)
+    except Exception as e:
+        st.error(f"Error loading avatar: {str(e)}")
 
-                submitted = st.form_submit_button("Export Data")
+    # Profile Stats
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Total Workouts", "125")
+        st.metric("Active Days", "45")
+    with col2:
+        st.metric("Average Recovery", "7.5")
+        st.metric("Current Streak", "5 days")
 
-                if submitted:
+    # Wearable Device Integration
+    st.subheader("🔌 Connected Devices")
+
+    # Initialize wearable manager
+    wearable_manager = WearableManager()
+
+    # Get connected devices
+    connected_devices = wearable_manager.get_connected_devices(st.session_state.user_id)
+
+    if connected_devices:
+        for device in connected_devices:
+            with st.expander(f"{device.name} ({device.type})"):
+                st.write(f"Status: {device.status}")
+                st.write(f"Last Sync: {device.last_sync}")
+
+                # Add disconnect button
+                if st.button(f"Disconnect {device.name}", key=f"disconnect_{device.id}"):
                     try:
-                        # Create a zip file if multiple files are being exported
-                        import zipfile
-                        from io import BytesIO
-
-                        zip_buffer = BytesIO()
-                        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-
-                            if "Workout Data" in data_types:
-                                workout_data = exporter.export_workout_data(
-                                    user_id=st.session_state.user_id,
-                                    format=format_type.lower(),
-                                    start_date=datetime.combine(start_date, datetime.min.time()),
-                                    end_date=datetime.combine(end_date, datetime.max.time())
-                                )
-                                zip_file.writestr(workout_data['filename'], workout_data['content'])
-
-                            if "Wearable Data" in data_types:
-                                wearable_data = exporter.export_wearable_data(
-                                    user_id=st.session_state.user_id,
-                                    format=format_type.lower(),
-                                    start_date=datetime.combine(start_date, datetime.min.time()),
-                                    end_date=datetime.combine(end_date, datetime.max.time()),
-                                    metrics=metrics if "Wearable Data" in data_types else None
-                                )
-                                zip_file.writestr(wearable_data['filename'], wearable_data['content'])
-
-                        # Prepare download button
-                        zip_buffer.seek(0)
-                        st.download_button(
-                            label="Download Exported Data",
-                            data=zip_buffer.getvalue(),
-                            file_name=f"health_data_export_{datetime.now().strftime('%Y%m%d')}.zip",
-                            mime="application/zip"
-                        )
-
-                        st.success("Data exported successfully!")
-
+                        wearable_manager.disconnect_device(device.id)
+                        st.success(f"Successfully disconnected {device.name}")
+                        st.rerun()
                     except Exception as e:
-                        st.error(f"Error exporting data: {str(e)}")
+                        st.error(f"Error disconnecting device: {str(e)}")
+    else:
+        st.info("No devices connected")
 
+        # Add device connection wizard
+        if st.button("Connect a Device"):
+            try:
+                wizard = WearableWizard()
+                wizard.start_connection_flow()
+            except Exception as e:
+                st.error(f"Error starting device connection: {str(e)}")
+
+    # Data Export Section
+    st.subheader("📊 Export Data")
+
+    export_manager = HealthDataExporter()
+
+    # Select data to export
+    export_options = st.multiselect(
+        "Select data to export",
+        ["Workouts", "Recovery Scores", "Device Metrics", "Achievements"],
+        key="export_data"
+    )
+
+    if export_options:
+        if st.button("Export Selected Data"):
+            try:
+                exported_data = export_manager.export_health_data(
+                    user_id=st.session_state.user_id,
+                    data_types=export_options
+                )
+                st.download_button(
+                    "Download Export",
+                    exported_data,
+                    file_name="health_data_export.json",
+                    mime="application/json"
+                )
+            except Exception as e:
+                st.error(f"Error exporting data: {str(e)}")
 
 def _get_recovery_color(score):
     """Get background color for recovery score card."""
