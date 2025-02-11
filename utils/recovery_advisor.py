@@ -31,34 +31,46 @@ class RecoveryAdvisor:
         if current_date is None:
             current_date = datetime.now()
 
-        # Get recent workout data
-        recent_workouts = self._get_recent_workouts(user_id, current_date)
+        try:
+            # Get recent workout data
+            recent_workouts = self._get_recent_workouts(user_id, current_date)
 
-        # Get current recovery and strain scores
-        recovery_data = self.recovery_calculator.calculate_recovery_score(
-            user_id, current_date
-        )
-        strain_data = self.recovery_calculator.calculate_strain_score(
-            user_id, current_date
-        )
+            # Get current recovery and strain scores
+            recovery_data = self.recovery_calculator.calculate_recovery_score(
+                user_id, current_date
+            )
+            strain_data = self.recovery_calculator.calculate_strain_score(
+                user_id, current_date
+            )
 
-        # Prepare workout summary for AI context
-        workout_summary = self._prepare_workout_summary(recent_workouts)
+            # Prepare workout summary for AI context
+            workout_summary = self._prepare_workout_summary(recent_workouts)
 
-        # Generate recommendations using Claude
-        recommendations = self._generate_ai_recommendations(
-            workout_summary,
-            recovery_data,
-            strain_data
-        )
+            # Generate recommendations using Claude
+            recommendations = self._generate_ai_recommendations(
+                workout_summary,
+                recovery_data,
+                strain_data
+            )
 
-        return {
-            'recommendations': json.dumps(recommendations),  # Convert the dict to JSON string
-            'recovery_score': recovery_data['recovery_score'],
-            'strain_score': strain_data['strain_score'],
-            'recent_workouts': len(recent_workouts),
-            'generated_at': datetime.now().isoformat()
-        }
+            if isinstance(recommendations, dict):
+                return {
+                    'recommendations': json.dumps(recommendations),
+                    'recovery_score': recovery_data['recovery_score'],
+                    'strain_score': strain_data['strain_score'],
+                    'recent_workouts': len(recent_workouts),
+                    'generated_at': datetime.now().isoformat()
+                }
+            else:
+                # If recommendations is not a dict, use fallback
+                return self._get_fallback_recommendations(
+                    recovery_data['recovery_score'],
+                    strain_data['strain_score']
+                )
+
+        except Exception as e:
+            print(f"Error in get_recovery_recommendations: {str(e)}")
+            return self._get_fallback_recommendations()
 
     def _get_recent_workouts(
         self,
@@ -143,22 +155,34 @@ Format your response as a JSON object with these sections as keys."""
             try:
                 recommendations = response.content[0].text
                 return json.loads(recommendations)  # Parse JSON string to dict
-            except json.JSONDecodeError:
-                # If JSON parsing fails, create a structured response
-                return {
-                    "Recovery Activities": "Focus on light mobility work and stretching.",
-                    "Nutrition": "Maintain balanced meals with adequate protein.",
-                    "Rest": "Aim for 7-9 hours of sleep.",
-                    "Next Training": "Consider intensity based on recovery score.",
-                    "Warning Signs": "Monitor for unusual fatigue or discomfort."
-                }
+            except (json.JSONDecodeError, AttributeError, IndexError):
+                return self._get_default_recommendations()
 
         except Exception as e:
             print(f"Error generating recommendations: {str(e)}")
-            return {
-                'error': 'Failed to generate recommendations',
-                'fallback_message': (
-                    'Based on your current recovery score, consider taking '
-                    'additional rest and focusing on proper nutrition and hydration.'
-                )
-            }
+            return self._get_default_recommendations()
+
+    def _get_default_recommendations(self) -> Dict:
+        """Get default recommendations when AI generation fails."""
+        return {
+            "Recovery Activities": "Focus on light mobility work and stretching.",
+            "Nutrition": "Maintain balanced meals with adequate protein.",
+            "Rest": "Aim for 7-9 hours of sleep.",
+            "Next Training": "Consider intensity based on recovery score.",
+            "Warning Signs": "Monitor for unusual fatigue or discomfort."
+        }
+
+    def _get_fallback_recommendations(
+        self,
+        recovery_score: float = 5.0,
+        strain_score: float = 5.0
+    ) -> Dict:
+        """Get fallback response when the main process fails."""
+        recommendations = self._get_default_recommendations()
+        return {
+            'recommendations': json.dumps(recommendations),
+            'recovery_score': recovery_score,
+            'strain_score': strain_score,
+            'recent_workouts': 0,
+            'generated_at': datetime.now().isoformat()
+        }
