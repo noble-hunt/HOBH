@@ -20,8 +20,11 @@ from utils.wearable_wizard import WearableWizard
 from utils.gamification import GamificationManager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from utils.models import WearableDevice, WorkoutLog # Added import for WorkoutLog
+from utils.models import WearableDevice, WorkoutLog
 from utils.export_manager import HealthDataExporter
+from utils.recovery_advisor import RecoveryAdvisor # Added import for RecoveryAdvisor
+import json # Added import for JSON handling
+
 
 st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
 
@@ -161,6 +164,7 @@ def main():
         show_achievements()
     elif st.session_state.current_page == "Profile":
         show_profile()
+
 
 
 def show_social_hub():
@@ -375,6 +379,52 @@ def show_home():
                         - Relative Intensity: {components['intensity']:.1f}/10
                         - Training Frequency: {components['frequency']:.1f}/10
                     """)
+
+        # Add Recovery Recommendations Section
+        st.subheader("🔄 Recovery Recommendations")
+
+        try:
+            # Create database session
+            engine = create_engine(os.environ['DATABASE_URL'])
+            with Session(engine) as session:
+                # Initialize recovery advisor
+                recovery_advisor = RecoveryAdvisor(session)
+
+                # Get personalized recommendations
+                recommendations = recovery_advisor.get_recovery_recommendations(
+                    st.session_state.user_id
+                )
+
+                if 'error' in recommendations:
+                    st.warning(recommendations['fallback_message'])
+                else:
+                    # Parse the recommendations JSON
+                    rec_data = json.loads(recommendations['recommendations'])
+
+                    # Create expandable sections for each recommendation type
+                    with st.expander("🎯 Recovery Activities", expanded=True):
+                        st.write(rec_data['Recovery Activities'])
+
+                    with st.expander("🥗 Nutrition Recommendations"):
+                        st.write(rec_data['Nutrition'])
+
+                    with st.expander("😴 Rest & Sleep"):
+                        st.write(rec_data['Rest'])
+
+                    with st.expander("📋 Next Training Session"):
+                        st.write(rec_data['Next Training'])
+
+                    with st.expander("⚠️ Warning Signs"):
+                        st.write(rec_data['Warning Signs'])
+
+                    # Add timestamp
+                    st.caption(
+                        f"Last updated: {datetime.fromisoformat(recommendations['generated_at']).strftime('%Y-%m-%d %H:%M')}"
+                    )
+        except Exception as e:
+            st.error(f"Unable to load recovery recommendations: {str(e)}")
+
+        st.markdown("---")  # Add separator before next section
 
         st.subheader("Movement Status")
         cols = st.columns(4)
@@ -795,7 +845,7 @@ def show_achievements():
                         <p style="margin: 5px 0;">{achievement['description']}</p>
                         <p style="margin: 0;font-size: 0.8em;">
                             Earned: {achievement['date_earned'].strftime('%Y-%m-%d')}
-                            {f"<br>Movement: {achievement['movement_name']}" if achievement['movement_name'] else ""}
+                            {f"<br>Movement: {achievement['movementname']}" if achievement['movement_name'] else ""}
                         </p>
                     </div>
                     """,
