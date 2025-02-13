@@ -27,6 +27,33 @@ import json
 import zipfile
 from io import BytesIO
 
+def show_loading_skeleton(skeleton_type: str = "default"):
+    """Display a loading skeleton based on the type needed."""
+    if skeleton_type == "metrics":
+        cols = st.columns(4)
+        for col in cols:
+            with col:
+                st.markdown('<div class="skeleton skeleton-metric"></div>', unsafe_allow_html=True)
+    elif skeleton_type == "chart":
+        st.markdown('<div class="skeleton skeleton-chart"></div>', unsafe_allow_html=True)
+    elif skeleton_type == "cards":
+        st.markdown("""
+        <div class="loading-grid">
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="loading-container">
+            <div class="skeleton skeleton-title"></div>
+            <div class="skeleton skeleton-text"></div>
+            <div class="skeleton skeleton-text"></div>
+            <div class="skeleton skeleton-text"></div>
+        </div>
+        """, unsafe_allow_html=True)
+
 st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
 
 # Load custom CSS
@@ -200,7 +227,6 @@ def main():
         show_achievements()
     elif st.session_state.current_page == "Profile":
         show_profile()
-
 
 
 def show_social_hub():
@@ -663,8 +689,17 @@ def show_progress_tracker():
             horizontal=True
         )
 
+    # Show loading skeleton while data is being fetched
+    loading_placeholder = st.empty()
+    with loading_placeholder:
+        show_loading_skeleton("metrics")
+        show_loading_skeleton("chart")
+
     # Get movement history
     history = data_manager.get_movement_history(movement)
+
+    # Clear loading skeleton
+    loading_placeholder.empty()
 
     if not history.empty:
         # Filter data based on date range
@@ -847,7 +882,7 @@ def show_achievements():
                         </p>
                     </div>
                     """,
-                                        unsafe_allow_html=True
+                    unsafe_allow_html=True
                 )
     else:
         st.info("No achievements earned yet. Keep training to unlock achievements!")
@@ -1004,7 +1039,7 @@ def show_profile():
                                 st.error(message)
 
             except Exception as e:
-                                st.error(f"Error loading profile information: {str(e)}")
+                st.error(f"Error loading profile information: {str(e)}")
 
             # Wearable Device Integration
             st.subheader("🔌 Connected Devices")

@@ -283,3 +283,84 @@
     margin-top: 2rem;
     animation: fadeIn 1s ease-out 1.8s both;
 }
+
+
+/* Loading Skeleton Animation */
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+.skeleton {
+    animation: shimmer 2s infinite linear;
+    background: linear-gradient(to right, #f6f7f8 4%, #edeef1 25%, #f6f7f8 36%);
+    background-size: 1000px 100%;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+.skeleton-text {
+    height: 16px;
+    width: 100%;
+}
+
+.skeleton-title {
+    height: 24px;
+    width: 60%;
+    margin-bottom: 15px;
+}
+
+.skeleton-card {
+    height: 100px;
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+.skeleton-metric {
+    height: 80px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.skeleton-chart {
+    height: 300px;
+    margin: 20px 0;
+}
+
+.skeleton-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+}
+
+/* Loading Container */
+.loading-container {
+    padding: 20px;
+    width: 100%;
+}
+
+/* Loading Grid */
+.loading-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+/* Fade In Animation for Content */
+.content-loaded {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
