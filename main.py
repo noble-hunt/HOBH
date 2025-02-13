@@ -122,7 +122,7 @@ def login_user():
                 st.session_state['user_id'] = user_id
                 st.session_state['username'] = username
                 st.session_state.login_status = 'success'
-                st.experimental_rerun()
+                st.rerun()
             else:
                 print(f"Debug: Authentication failed - {error}")
                 st.error(error)
@@ -1076,7 +1076,6 @@ def show_profile():
         except Exception as e:
             st.error(f"Error loading profile settings: {str(e)}")
 
-        
 
 def _get_recovery_color(score):
     """Get background color for recovery score card."""
