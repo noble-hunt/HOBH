@@ -20,10 +20,10 @@ from utils.wearable_wizard import WearableWizard
 from utils.gamification import GamificationManager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from utils.models import WearableDevice, WorkoutLog, UserProfile # Added import for UserProfile
+from utils.models import WearableDevice, WorkoutLog, UserProfile
 from utils.export_manager import HealthDataExporter
-from utils.recovery_advisor import RecoveryAdvisor # Added import for RecoveryAdvisor
-import json # Added import for JSON handling
+from utils.recovery_advisor import RecoveryAdvisor
+import json
 import zipfile
 from io import BytesIO
 
@@ -33,11 +33,40 @@ st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
 with open('assets/style.css') as f:
     st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
-# Initialize managers
-data_manager = DataManager()
-social_manager = SocialManager()
-auth_manager = AuthManager()
-quote_generator = QuoteGenerator()
+# Cache data loading functions
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def get_cached_achievements():
+    return data_manager.get_achievements()
+
+@st.cache_data(ttl=300)
+def get_cached_recent_logs(user_id):
+    return data_manager.get_recent_logs(user_id)
+
+@st.cache_data(ttl=300)
+def get_cached_training_load(user_id):
+    return data_manager.get_training_load(user_id)
+
+@st.cache_data(ttl=300)
+def get_cached_movement_status(user_id):
+    return data_manager.get_movement_status(user_id)
+
+# Initialize managers only once at startup
+@st.cache_resource
+def get_managers():
+    return {
+        'data_manager': DataManager(),
+        'social_manager': SocialManager(),
+        'auth_manager': AuthManager(),
+        'quote_generator': QuoteGenerator()
+    }
+
+# Get cached managers
+managers = get_managers()
+data_manager = managers['data_manager']
+social_manager = managers['social_manager']
+auth_manager = managers['auth_manager']
+quote_generator = managers['quote_generator']
+
 
 # Initialize session state
 if 'user_id' not in st.session_state:
@@ -216,19 +245,18 @@ def show_social_hub():
 
 def show_home():
     """Display the home page with animated welcome screen"""
-
-    # Welcome Container with animated logo
     welcome_container = st.container()
     with welcome_container:
         st.markdown('<div class="welcome-container">', unsafe_allow_html=True)
 
-        # Animated logo
-        if Path("attached_assets/yHOBH.png").exists():
+        # Load logo only if exists (cached)
+        logo_path = Path("attached_assets/yHOBH.png")
+        if logo_path.exists():
             st.markdown(
                 f'<div class="welcome-logo">',
                 unsafe_allow_html=True
             )
-            st.image("attached_assets/yHOBH.png", use_container_width=False, width=250)
+            st.image(str(logo_path), use_container_width=False, width=250)
             st.markdown('</div>', unsafe_allow_html=True)
 
         # Welcome message
@@ -237,15 +265,14 @@ def show_home():
             unsafe_allow_html=True
         )
 
-        # Get user's fitness data
+        # Get cached user data
         try:
-            recent_logs = data_manager.get_recent_logs(st.session_state.user_id)
+            recent_logs = get_cached_recent_logs(st.session_state.user_id)
             total_workouts = len(recent_logs)
             unique_movements = len(set(log['movement']['name'] for log in recent_logs if log.get('movement')))
 
             # Create metrics grid
             cols = st.columns(4)
-
             metrics = [
                 {"label": "Total Workouts", "value": total_workouts, "icon": "🏋️‍♂️"},
                 {"label": "Movements Mastered", "value": unique_movements, "icon": "🎯"},
@@ -266,9 +293,9 @@ def show_home():
                         unsafe_allow_html=True
                     )
 
-            # Recent Achievements
+            # Recent Achievements (cached)
             st.markdown('<h2 class="welcome-header">Recent Achievements</h2>', unsafe_allow_html=True)
-            achievements = data_manager.get_achievements()[:3]  # Get last 3 achievements
+            achievements = get_cached_achievements()[:3]
 
             if achievements:
                 for achievement in achievements:
@@ -284,12 +311,11 @@ def show_home():
             else:
                 st.info("Complete your first workout to start earning achievements!")
 
-            # Training Load Status
+            # Training Load Status (cached)
             st.markdown('<h2 class="welcome-header">Training Load Status</h2>', unsafe_allow_html=True)
 
             try:
-                # Get training load data
-                training_load = data_manager.get_training_load(st.session_state.user_id)
+                training_load = get_cached_training_load(st.session_state.user_id)
 
                 if training_load:
                     cols = st.columns(3)
@@ -354,15 +380,13 @@ def show_home():
             except Exception as e:
                 st.error(f"Error loading training status: {str(e)}")
 
-            # Movement Status Section
+            # Movement Status Section (cached)
             st.markdown('<h2 class="welcome-header">Movement Status</h2>', unsafe_allow_html=True)
 
             try:
-                # Get movement status data
-                movement_stats = data_manager.get_movement_status(st.session_state.user_id)
+                movement_stats = get_cached_movement_status(st.session_state.user_id)
 
                 if movement_stats and len(movement_stats) > 0:
-                    # Create grid layout for movement cards
                     cols = st.columns(3)
 
                     for idx, movement in enumerate(movement_stats):
@@ -392,15 +416,16 @@ def show_home():
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Daily Motivation Quote
+        # Daily Quote (cached with daily refresh)
+        today = datetime.now().date()
         if (not st.session_state.daily_quote or 
             not st.session_state.quote_date or 
-            st.session_state.quote_date.date() != datetime.now().date()):
+            st.session_state.quote_date.date() != today):
 
             user_context = {}
             if st.session_state.user_id:
                 try:
-                    recent_logs = data_manager.get_recent_logs(st.session_state.user_id)
+                    recent_logs = get_cached_recent_logs(st.session_state.user_id)
                     if recent_logs and len(recent_logs) > 0 and recent_logs[0].get('movement'):
                         user_context = {
                             'target_movement': recent_logs[0]['movement']['name'],
