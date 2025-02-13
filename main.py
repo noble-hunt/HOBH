@@ -99,33 +99,36 @@ def navigate_to(page):
 def login_user():
     st.header("Login")
 
-    # Only show form if not logged in successfully
-    if 'login_status' not in st.session_state:
-        st.session_state.login_status = 'not_logged_in'
+    # Container for success message
+    message_container = st.empty()
 
-    if st.session_state.login_status == 'success':
-        st.success("Successfully logged in!")
-        st.session_state.login_status = 'not_logged_in'  # Reset for next login
+    # Only process login if not already logged in
+    if st.session_state.get('user_id'):
+        message_container.success("Successfully logged in!")
         return
 
-    with st.form("login_form", clear_on_submit=True):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Login")
+    # Container for the form
+    form_container = st.container()
 
-        if submitted:
-            print(f"Debug: Form submitted for user: {username}")
-            user_id, error = auth_manager.authenticate_user(username, password)
+    with form_container:
+        with st.form("login_form", clear_on_submit=True):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Login")
 
-            if user_id:
-                print(f"Debug: Authentication successful for user_id: {user_id}")
-                st.session_state['user_id'] = user_id
-                st.session_state['username'] = username
-                st.session_state.login_status = 'success'
-                st.rerun()
-            else:
-                print(f"Debug: Authentication failed - {error}")
-                st.error(error)
+            if submitted:
+                print(f"Debug: Form submitted for user: {username}")
+                user_id, error = auth_manager.authenticate_user(username, password)
+
+                if user_id:
+                    print(f"Debug: Authentication successful for user_id: {user_id}")
+                    st.session_state['user_id'] = user_id
+                    st.session_state['username'] = username
+                    message_container.success("Successfully logged in!")
+                    # No rerun needed, let Streamlit handle the state update
+                else:
+                    print(f"Debug: Authentication failed - {error}")
+                    st.error(error)
 
 def signup_user():
     st.header("Sign Up")
@@ -422,8 +425,8 @@ def show_home():
 
         # Daily Quote (cached with daily refresh)
         today = datetime.now().date()
-        if (not st.session_state.daily_quote or 
-            not st.session_state.quote_date or 
+        if (not st.session_state.daily_quote or
+            not st.session_state.quote_date or
             st.session_state.quote_date.date() != today):
 
             user_context = {}
@@ -699,9 +702,9 @@ def show_progress_tracker():
 
         # Create tabs for different visualizations
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "Progress Charts", 
+            "Progress Charts",
             "3D Visualization",
-            "Training Summary", 
+            "Training Summary",
             "Workout Patterns",
             "Training Insights"
         ])
@@ -844,7 +847,7 @@ def show_achievements():
                         </p>
                     </div>
                     """,
-                    unsafe_allow_html=True
+                                        unsafe_allow_html=True
                 )
     else:
         st.info("No achievements earned yet. Keep training to unlock achievements!")
