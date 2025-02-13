@@ -99,18 +99,16 @@ def navigate_to(page):
 def login_user():
     st.header("Login")
 
-    # Add session state for login status if not exists
-    if 'login_success' not in st.session_state:
-        st.session_state.login_success = False
+    # Only show form if not logged in successfully
+    if 'login_status' not in st.session_state:
+        st.session_state.login_status = 'not_logged_in'
 
-    # Show success message if just logged in
-    if st.session_state.login_success:
+    if st.session_state.login_status == 'success':
         st.success("Successfully logged in!")
-        st.session_state.login_success = False  # Reset for next time
-        st.rerun()
+        st.session_state.login_status = 'not_logged_in'  # Reset for next login
         return
 
-    with st.form("login_form"):
+    with st.form("login_form", clear_on_submit=True):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         submitted = st.form_submit_button("Login")
@@ -121,11 +119,10 @@ def login_user():
 
             if user_id:
                 print(f"Debug: Authentication successful for user_id: {user_id}")
-                # Update session state
                 st.session_state['user_id'] = user_id
                 st.session_state['username'] = username
-                st.session_state.login_success = True
-                st.rerun()
+                st.session_state.login_status = 'success'
+                st.experimental_rerun()
             else:
                 print(f"Debug: Authentication failed - {error}")
                 st.error(error)
@@ -1080,6 +1077,7 @@ def show_profile():
             st.error(f"Error loading profile settings: {str(e)}")
 
         
+
 def _get_recovery_color(score):
     """Get background color for recovery score card."""
     if score <= 3:
