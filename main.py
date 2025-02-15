@@ -328,19 +328,21 @@ def show_home():
 
             # Recent Achievements (cached)
             st.markdown('<h2 class="welcome-header">Recent Achievements</h2>', unsafe_allow_html=True)
-            achievements = get_cached_achievements()[:3]
+            achievements = get_cached_achievements()[:2]  # Limit to 2 achievements
 
             if achievements:
-                for achievement in achievements:
-                    st.markdown(
-                        f"""
-                        <div class="achievement-card">
-                            <h4>🏅 {achievement['name']}</h4>
-                            <p>{achievement['description']}</p>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                cols = st.columns(2)
+                for idx, achievement in enumerate(achievements):
+                    with cols[idx]:
+                        st.markdown(
+                            f"""
+                            <div class="metric-card status-green">
+                                <h3>🏅 {achievement['name']}</h3>
+                                <p>{achievement['description']}</p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
             else:
                 st.info("Complete your first workout to start earning achievements!")
 
