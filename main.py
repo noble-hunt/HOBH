@@ -60,7 +60,7 @@ st.set_page_config(page_title="Olympic Weightlifting Tracker", layout="wide")
 with open('assets/style.css') as f:
     st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
-# Cache data loading functions
+# Add caching decorators and optimize data loading
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def get_cached_achievements():
     return data_manager.get_achievements()
