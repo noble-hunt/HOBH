@@ -5,6 +5,7 @@ description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.45.2",
+    "bcrypt>=4.2.1",
     "fastapi>=0.115.8",
     "mediapipe>=0.10.21",
     "openai>=1.61.1",
@@ -14,6 +15,7 @@ dependencies = [
     "plotly>=6.0.0",
     "psycopg2-binary>=2.9.10",
     "py-avataaars>=1.1.2",
+    "pydantic>=2.10.6",
     "python-jose[cryptography]>=3.3.0",
     "requests>=2.32.3",
     "scikit-learn>=1.6.1",
